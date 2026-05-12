@@ -18,6 +18,7 @@ class NotificationService extends ChangeNotifier {
 
   void _init() {
     _socketSub = SocketService.instance.onNotification.listen((data) {
+      print('🔔 NotificationService: Received raw notification: $data');
       final id = data['id']?.toString() ?? data['notificationId']?.toString() ?? '';
       if (id.isNotEmpty && _processedIds.contains(id)) return;
       if (id.isNotEmpty) _processedIds.add(id);
@@ -27,6 +28,7 @@ class NotificationService extends ChangeNotifier {
 
     // Also listen for resource and assignment events to show as notifications
     _assignmentSub = SocketService.instance.onAssignmentUpdate.listen((data) {
+      print('🛰️ NotificationService: Received assignment update: ${data['event']}');
       final type = data['type'] ?? 'Assignment';
       final event = data['event'] ?? '';
       

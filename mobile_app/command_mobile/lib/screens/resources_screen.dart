@@ -45,8 +45,22 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     _refreshNearbyShelters();
     _refreshAssignedIncidents();
 
-    _socketSub = SocketService.instance.onAssignmentUpdate.listen((_) {
+    // Ensure socket is connected for real-time updates
+    SocketService.instance.connect();
+
+    _socketSub = SocketService.instance.onAssignmentUpdate.listen((data) {
+      final event = data['event'];
+      final requestId = data['requestId']?.toString() ?? data['request_id']?.toString();
+      
+      print('📥 DEBUG: ResourcesScreen received socket event: $event for id: $requestId');
+
       if (mounted) {
+        if (event == 'resourceRequest:deleted' && requestId != null) {
+          setState(() {
+            _resourceRequests.removeWhere((r) => r.requestId == requestId);
+          });
+        }
+        
         _refreshResources(ignoreCache: true);
         _refreshResourceRequests(ignoreCache: true);
         _refreshAssignedIncidents(ignoreCache: true);

@@ -128,9 +128,10 @@ export function getIO(existingServer?: HttpServer) {
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'ResourceRequest' },
         (payload: any) => {
-          console.log('[socket.io] supabase: ResourceRequest DELETED', payload.old.request_id)
+          const requestId = payload.old.request_id
+          console.log(`[socket.io] Supabase DB DELETE: ResourceRequest ${requestId}`)
           io.emit('resourceRequest:deleted', {
-            requestId: payload.old.request_id,
+            requestId,
             userId: payload.old.requested_by
           })
         }
@@ -139,9 +140,10 @@ export function getIO(existingServer?: HttpServer) {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'ResourceRequest' },
         (payload: any) => {
-          console.log('[socket.io] supabase: ResourceRequest UPDATED', payload.new.request_id)
+          const requestId = payload.new.request_id
+          console.log(`[socket.io] Supabase DB UPDATE: ResourceRequest ${requestId} status=${payload.new.status}`)
           io.emit('resourceRequest:updated', {
-            requestId: payload.new.request_id,
+            requestId,
             userId: payload.new.requested_by,
             incidentId: payload.new.incident_id,
             status: payload.new.status
@@ -152,9 +154,10 @@ export function getIO(existingServer?: HttpServer) {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'ConfirmedIncident' },
         (payload: any) => {
-          console.log('[socket.io] supabase: ConfirmedIncident UPDATED', payload.new.id)
+          const incidentId = payload.new.id
+          console.log(`[socket.io] Supabase DB UPDATE: ConfirmedIncident ${incidentId}`)
           io.emit('incident:updated', {
-            incidentId: payload.new.id,
+            incidentId,
             updates: payload.new
           })
         }
