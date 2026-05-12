@@ -7,6 +7,7 @@ type SocketStore = {
   io?: Server
   httpServer?: HttpServer
   started?: boolean
+  supabaseSubscribed?: boolean
 }
 
 type SocketData = {
@@ -115,6 +116,57 @@ export function getIO(existingServer?: HttpServer) {
       console.log(`[socket.io] frontend disconnected socket=${socket.id}`)
     })
   })
+
+  // Setup Supabase Realtime Bridge
+  if (!store.supabaseSubscribed) {
+    const { supabase } = require('@/lib/supabase')
+    
+    console.log('[socket.io] setting up supabase realtime bridge...')
+    
+    supabase
+      .channel('db-changes')
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'ResourceRequest' },
+        (payload: any) => {
+          console.log('[socket.io] supabase: ResourceRequest DELETED', payload.old.request_id)
+          io.emit('resourceRequest:deleted', {
+            requestId: payload.old.request_id,
+            userId: payload.old.requested_by
+          })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'ResourceRequest' },
+        (payload: any) => {
+          console.log('[socket.io] supabase: ResourceRequest UPDATED', payload.new.request_id)
+          io.emit('resourceRequest:updated', {
+            requestId: payload.new.request_id,
+            userId: payload.new.requested_by,
+            incidentId: payload.new.incident_id,
+            status: payload.new.status
+          })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'ConfirmedIncident' },
+        (payload: any) => {
+          console.log('[socket.io] supabase: ConfirmedIncident UPDATED', payload.new.id)
+          io.emit('incident:updated', {
+            incidentId: payload.new.id,
+            updates: payload.new
+          })
+        }
+      )
+      .subscribe((status: string) => {
+        console.log(`[socket.io] supabase realtime status: ${status}`)
+        if (status === 'SUBSCRIBED') {
+          store.supabaseSubscribed = true
+        }
+      })
+  }
 
   // Only start listening if we created a standalone server
   if (!existingServer) {
