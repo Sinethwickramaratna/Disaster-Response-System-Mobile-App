@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/assignment.dart';
 import '../services/assignment_service.dart';
+import '../services/socket_service.dart';
 import '../theme/app_theme.dart';
 import '../components/app_drawer.dart';
 import '../components/notification_button.dart';
@@ -233,6 +235,115 @@ class _AlertsScreenState extends State<AlertsScreen> {
   // ═══════════════════════════════════════
   //  ALERT CARD (Critical / High)
   // ═══════════════════════════════════════
+  void _showAlertDetails({
+    required String title,
+    required String description,
+    required AlertSeverity severity,
+    required List<_AlertMeta> metaItems,
+    required String timestamp,
+  }) {
+    final bool isCritical = severity == AlertSeverity.critical;
+    final Color accentColor = isCritical ? AppColors.error : const Color(0xFFDF7412);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF10131A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: accentColor.withValues(alpha: 0.5), width: 2),
+        ),
+        title: Row(
+          children: [
+            Icon(isCritical ? Icons.warning_rounded : Icons.info_outline, color: accentColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  severity.name.toUpperCase(),
+                  style: GoogleFonts.spaceGrotesk(
+                    color: accentColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                description,
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF9CA3AF),
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Divider(color: Colors.white10),
+              const SizedBox(height: 12),
+              ...metaItems.map((meta) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Icon(meta.icon, size: 16, color: accentColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      meta.label,
+                      style: GoogleFonts.spaceGrotesk(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+              const SizedBox(height: 8),
+              Text(
+                'Issued at: $timestamp',
+                style: GoogleFonts.spaceGrotesk(
+                  color: Colors.white30,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'CLOSE',
+              style: GoogleFonts.spaceGrotesk(
+                color: accentColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAlertCard({
     required AlertSeverity severity,
     required IconData icon,
@@ -253,172 +364,189 @@ class _AlertsScreenState extends State<AlertsScreen> {
       ),
     ];
 
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0B1326),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-        boxShadow: glow,
+    return InkWell(
+      onTap: () => _showAlertDetails(
+        title: title,
+        description: description,
+        severity: severity,
+        metaItems: metaItems,
+        timestamp: timestamp,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Top accent border
-          Container(height: 2, color: accentColor),
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: const Color(0xFF0B1326),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          boxShadow: glow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Top accent border
+            Container(height: 2, color: accentColor),
 
-          Stack(
-            children: [
-              // Corner decoration (critical only)
-              if (isCritical)
-                Positioned(
-                  top: -32,
-                  right: -32,
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
+            Stack(
+              children: [
+                // Corner decoration (critical only)
+                if (isCritical)
+                  Positioned(
+                    top: -32,
+                    right: -32,
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
-                ),
 
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Header row: icon + badge + timestamp ──
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(icon, color: accentColor, size: 20),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: accentColor.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                              child: Text(
-                                isCritical ? 'CRITICAL' : 'HIGH',
-                                style: GoogleFonts.spaceGrotesk(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.2,
-                                  color: accentColor,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          timestamp,
-                          style: GoogleFonts.spaceGrotesk(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // ── Title ──
-                    Text(
-                      title,
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
-                        color: AppColors.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // ── Description ──
-                    Text(
-                      description,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        height: 1.5,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ── Footer: meta + view details ──
-                    Container(
-                      padding: const EdgeInsets.only(top: 12),
-                      decoration: const BoxDecoration(
-                        border: Border(
-                          top: BorderSide(
-                            color: Colors.white10,
-                          ),
-                        ),
-                      ),
-                      child: Row(
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Header row: icon + badge + timestamp ──
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Meta items
                           Row(
-                            children: metaItems
-                                .map(
-                                  (m) => Padding(
-                                    padding: const EdgeInsets.only(right: 16),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(m.icon,
-                                            size: 14,
-                                            color: AppColors.onSurfaceVariant),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          m.label,
-                                          style: GoogleFonts.spaceGrotesk(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
-                                            color: AppColors.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                          // View Details link
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                'VIEW DETAILS',
-                                style: GoogleFonts.spaceGrotesk(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.2,
-                                  color: accentColor,
+                              Icon(icon, color: accentColor, size: 20),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: accentColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                                child: Text(
+                                  isCritical ? 'CRITICAL' : 'HIGH',
+                                  style: GoogleFonts.spaceGrotesk(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                    color: accentColor,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 2),
-                              Icon(Icons.chevron_right,
-                                  size: 14, color: accentColor),
                             ],
+                          ),
+                          Text(
+                            timestamp,
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.onSurfaceVariant,
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+
+                      // ── Title ──
+                      Text(
+                        title,
+                        style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          color: AppColors.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // ── Description ──
+                      Text(
+                        description,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          height: 1.5,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ── Footer: meta + view details ──
+                      Container(
+                        padding: const EdgeInsets.only(top: 12),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            top: BorderSide(
+                              color: Colors.white10,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Meta items
+                            Expanded(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: metaItems
+                                      .map(
+                                        (m) => Padding(
+                                          padding: const EdgeInsets.only(right: 16),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(m.icon,
+                                                  size: 14,
+                                                  color: AppColors.onSurfaceVariant),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                m.label,
+                                                style: GoogleFonts.spaceGrotesk(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: AppColors.onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              ),
+                            ),
+                            // View Details link
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'VIEW DETAILS',
+                                  style: GoogleFonts.spaceGrotesk(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.2,
+                                    color: accentColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
+                                Icon(Icons.chevron_right,
+                                    size: 14, color: accentColor),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

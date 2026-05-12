@@ -61,6 +61,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
       _loadDashboardData();
     });
+
+    _assignmentSub = SocketService.instance.onAssignmentUpdate.listen((data) {
+      if (!mounted) return;
+      _loadDashboardData();
+    });
   }
 
   // Notifications are handled by NotificationService globally

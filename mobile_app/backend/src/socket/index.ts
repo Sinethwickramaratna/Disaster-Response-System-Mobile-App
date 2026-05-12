@@ -151,6 +151,17 @@ export function getIO(existingServer?: HttpServer) {
               updatedAt: data.updated_at || data.updatedAt,
               event: eventName
             })
+          } else if (table.toLowerCase() === 'personnelassignment' && eventType === 'INSERT') {
+            const userId = payload.new.user_id;
+            console.log(`[socket.io] Broadcasting incident:assigned to user:${userId}`);
+            io.to(`user:${userId}`).emit('incident:assigned', {
+              assignmentId: payload.new.assignment_id,
+              incidentId: payload.new.incident_id,
+              role: payload.new.assigned_role,
+              status: payload.new.status,
+              updatedAt: payload.new.assigned_at,
+              event: 'incident:assigned'
+            });
           } else if (table.toLowerCase() === 'confirmedincident' && eventType === 'UPDATE') {
             console.log(`[socket.io] Broadcasting incident:updated for ${payload.new.id}`)
             io.emit('incident:updated', {

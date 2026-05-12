@@ -138,13 +138,26 @@ class _NotificationButtonState extends State<NotificationButton> {
                                            message.toLowerCase().contains('cancelled') ||
                                            type.toLowerCase() == 'deleted';
 
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: isDelete ? Colors.red.withValues(alpha: 0.1) : const Color(0xFF10131A),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: isDelete ? Colors.red.withValues(alpha: 0.3) : const Color(0xFF2A2D35)),
-                            ),
+                          return InkWell(
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              final t = type.toLowerCase();
+                              if (t.contains('incident') || t.contains('report') || t.contains('assignment')) {
+                                Navigator.pushReplacementNamed(context, '/reports');
+                              } else if (t.contains('resource')) {
+                                Navigator.pushReplacementNamed(context, '/resources');
+                              } else if (t.contains('alert')) {
+                                Navigator.pushReplacementNamed(context, '/alerts');
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: isDelete ? Colors.red.withValues(alpha: 0.1) : const Color(0xFF10131A),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: isDelete ? Colors.red.withValues(alpha: 0.3) : const Color(0xFF2A2D35)),
+                              ),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -198,6 +211,7 @@ class _NotificationButtonState extends State<NotificationButton> {
                                   ),
                                 ),
                               ],
+                              ),
                             ),
                           );
                         },

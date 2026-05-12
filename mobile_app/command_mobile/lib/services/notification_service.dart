@@ -96,6 +96,12 @@ class NotificationService extends ChangeNotifier {
         } else {
           message = 'Incident ${data['incidentId']} data was updated';
         }
+
+        if (event == 'incident:assigned') {
+          title = 'New Incident Assigned';
+          final role = data['role']?.toString() ?? 'Responder';
+          message = 'You have been assigned to Incident ${data['incidentId']} as $role';
+        }
       }
 
       if (title != null) {
