@@ -52,12 +52,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _subscribeRealtime() {
     _assignmentSub = SocketService.instance.onAssignmentUpdate.listen((data) {
-      SocketService.instance.pushNotification({
-        'title': 'Assigned incident update',
-        'message': _buildAssignmentNotificationMessage(data),
-        'type': 'assignment',
-        'id': data['assignmentId']?.toString() ?? data['incidentId']?.toString(),
-      });
+      // Notification is now handled globally by NotificationService
 
       _addNotification(
         title: 'Assigned incident update',
@@ -86,12 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           alertsData.removeWhere((a) => a.id == alert.id);
           alertsData.insert(0, alert);
         });
-        SocketService.instance.pushNotification({
-          'title': alert.title,
-          'message': '${alert.district.isNotEmpty ? '${alert.district} • ' : ''}${alert.severity}',
-          'type': 'alert',
-          'id': alert.id,
-        });
+        // Notification is now handled globally by NotificationService
         _addNotification(
           title: alert.title,
           message: '${alert.district.isNotEmpty ? '${alert.district} • ' : ''}${alert.severity}',

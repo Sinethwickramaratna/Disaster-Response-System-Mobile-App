@@ -144,6 +144,35 @@ export async function deleteResourceRequest(userId: string, requestId: string) {
   return { success: true, requestId }
 }
 
+export async function updateResourceRequestStatus(requestId: string, status: string, userId: string) {
+  const { data, error } = await supabase
+    .from('ResourceRequest')
+    .update({ 
+      status,
+      reviewed_at: new Date().toISOString()
+    })
+    .eq('request_id', requestId)
+    .select('request_id, requested_by, incident_id, status')
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  // Emit socket event for real-time update
+  const io = getIO()
+  if (io) {
+    io.emit('resourceRequest:updated', {
+      requestId: data.request_id,
+      userId: data.requested_by,
+      incidentId: data.incident_id,
+      status: data.status
+    })
+  }
+
+  return data
+}
+
 type NearbySheltersQuery = {
   userId: string
   zoneId?: number

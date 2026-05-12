@@ -129,7 +129,11 @@ class SocketService {
       'resourceRequest:created',
       'resourceRequest:deleted',
     ]) {
-      socket.on(eventName, (data) => _assignmentController.add(_toMap(data)));
+      socket.on(eventName, (data) {
+        final map = _toMap(data);
+        map['event'] = eventName;
+        _assignmentController.add(map);
+      });
     }
 
     for (final eventName in const ['alert:critical', 'alert:public', 'alert:new']) {
