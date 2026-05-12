@@ -47,8 +47,23 @@ export async function getAssignedReports(userId: string) {
     return acc
   }, {} as Record<string, any>)
 
+  const incidentIdsForQuery = Array.from(
+    new Set((data ?? []).map((report) => report.incident_id).filter(Boolean))
+  )
+
+  const { data: incidentsData } = await supabase
+    .from('ConfirmedIncident')
+    .select('id, disasterType, district')
+    .in('id', incidentIdsForQuery)
+
+  const incidentMapById = (incidentsData ?? []).reduce((acc, incident) => {
+    acc[incident.id] = incident
+    return acc
+  }, {} as Record<string, any>)
+
   return (data ?? []).map((report) => {
     const assignment = assignmentMap[report.incident_id]
+    const incident = incidentMapById[report.incident_id]
     return {
       reportId: report.report_id.toString(),
       id: report.report_id.toString(),
@@ -66,6 +81,8 @@ export async function getAssignedReports(userId: string) {
       longitude: toNumber(report.longitude),
       assignedAt: assignment?.assigned_at,
       assignedRole: assignment?.assigned_role,
+      disasterType: incident?.disasterType || 'UNKNOWN',
+      district: incident?.district || 'UNKNOWN',
     }
   })
 }
@@ -74,24 +91,7 @@ export async function getReportById(userId: string, reportId: string) {
   const { data, error } = await supabase
     .from('Report')
     .select(
-      `
-        report_id, 
-        source_channel, 
-        reporter_name, 
-        contact_info, 
-        description, 
-        media_url, 
-        latitude, 
-        longitude, 
-        status, 
-        created_at, 
-        updated_at, 
-        incident_id,
-        ConfirmedIncident:incident_id (
-          disasterType,
-          district
-        )
-      `
+      'report_id, source_channel, reporter_name, contact_info, description, media_url, latitude, longitude, status, created_at, updated_at, incident_id'
     )
     .eq('report_id', reportId)
     .maybeSingle()
@@ -137,7 +137,15 @@ export async function getReportById(userId: string, reportId: string) {
     return null
   }
 
-  const incident = unwrapRelation(data.ConfirmedIncident) as any
+  let incident = null
+  if (incidentId) {
+    const { data: incidentData } = await supabase
+      .from('ConfirmedIncident')
+      .select('disasterType, district')
+      .eq('id', incidentId)
+      .maybeSingle()
+    incident = incidentData
+  }
 
   return {
     reportId: data.report_id.toString(),
