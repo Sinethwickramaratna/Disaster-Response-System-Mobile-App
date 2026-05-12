@@ -2,6 +2,7 @@ import { createServer, type Server as HttpServer } from 'http'
 import { Server, type Socket } from 'socket.io'
 import jwt from 'jsonwebtoken'
 import type { JwtClaims } from '@/types/auth'
+import { supabase } from '@/lib/supabase'
 
 type SocketStore = {
   io?: Server
@@ -119,8 +120,6 @@ export function getIO(existingServer?: HttpServer) {
 
   // Setup Supabase Realtime Bridge
   if (!store.supabaseSubscribed) {
-    const { supabase } = require('@/lib/supabase')
-    
     console.log('[socket.io] setting up supabase realtime bridge...')
     
     supabase
