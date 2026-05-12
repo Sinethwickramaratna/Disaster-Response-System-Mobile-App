@@ -151,16 +151,18 @@ export function getIO(existingServer?: HttpServer) {
               updatedAt: data.updated_at || data.updatedAt,
               event: eventName
             })
-          } else if (table.toLowerCase() === 'personnelassignment' && eventType === 'INSERT') {
-            const userId = payload.new.user_id;
-            console.log(`[socket.io] Broadcasting incident:assigned to user:${userId}`);
-            io.to(`user:${userId}`).emit('incident:assigned', {
-              assignmentId: payload.new.assignment_id,
-              incidentId: payload.new.incident_id,
-              role: payload.new.assigned_role,
-              status: payload.new.status,
-              updatedAt: payload.new.assigned_at,
-              event: 'incident:assigned'
+          } else if (table.toLowerCase() === 'personnelassignment') {
+            const userId = eventType === 'DELETE' ? payload.old.user_id : payload.new.user_id;
+            const eventName = eventType === 'INSERT' ? 'incident:assigned' : (eventType === 'DELETE' ? 'incident:removed' : 'incident:updated');
+            
+            console.log(`[socket.io] Broadcasting ${eventName} to user:${userId}`);
+            io.to(`user:${userId}`).emit(eventName, {
+              assignmentId: eventType === 'DELETE' ? payload.old.assignment_id : payload.new.assignment_id,
+              incidentId: eventType === 'DELETE' ? payload.old.incident_id : payload.new.incident_id,
+              role: eventType === 'DELETE' ? payload.old.assigned_role : payload.new.assigned_role,
+              status: eventType === 'DELETE' ? 'REMOVED' : payload.new.status,
+              updatedAt: eventType === 'DELETE' ? new Date().toISOString() : (payload.new.assigned_at || new Date().toISOString()),
+              event: eventName
             });
           } else if (table.toLowerCase() === 'confirmedincident' && eventType === 'UPDATE') {
             console.log(`[socket.io] Broadcasting incident:updated for ${payload.new.id}`)

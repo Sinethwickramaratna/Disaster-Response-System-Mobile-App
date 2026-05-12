@@ -101,6 +101,9 @@ class NotificationService extends ChangeNotifier {
           title = 'New Incident Assigned';
           final role = data['role']?.toString() ?? 'Responder';
           message = 'You have been assigned to Incident ${data['incidentId']} as $role';
+        } else if (event == 'incident:removed') {
+          title = 'Assignment Removed';
+          message = 'You have been unassigned from Incident ${data['incidentId']}';
         }
       }
 
@@ -109,7 +112,8 @@ class NotificationService extends ChangeNotifier {
           'title': title,
           'message': message,
           'type': type,
-          'createdAt': DateTime.now().toIso8601String(),
+          'createdAt': data['updatedAt'] ?? DateTime.now().toIso8601String(),
+          'incidentId': data['incidentId'],
         });
       }
     });

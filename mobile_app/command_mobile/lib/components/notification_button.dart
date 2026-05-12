@@ -143,7 +143,11 @@ class _NotificationButtonState extends State<NotificationButton> {
                               Navigator.pop(ctx);
                               final t = type.toLowerCase();
                               if (t.contains('incident') || t.contains('report') || t.contains('assignment')) {
-                                Navigator.pushReplacementNamed(context, '/reports');
+                                Navigator.pushReplacementNamed(
+                                  context, 
+                                  '/reports',
+                                  arguments: {'incidentId': notification['incidentId']},
+                                );
                               } else if (t.contains('resource')) {
                                 Navigator.pushReplacementNamed(context, '/resources');
                               } else if (t.contains('alert')) {

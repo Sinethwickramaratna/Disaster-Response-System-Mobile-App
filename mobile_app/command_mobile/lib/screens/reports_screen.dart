@@ -52,6 +52,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _incidents = response;
       _isLoading = false;
     });
+
+    // Handle deep-linking from notifications
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null && args.containsKey('incidentId')) {
+        final incidentId = args['incidentId'];
+        final match = _incidents.where((i) => i.incidentId == incidentId).toList();
+        if (match.isNotEmpty) {
+          _openIncidentDetails(match.first);
+        }
+      }
+    });
   }
 
   List<AssignmentIncident> get _filteredIncidents {
