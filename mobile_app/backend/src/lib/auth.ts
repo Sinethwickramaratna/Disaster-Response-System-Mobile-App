@@ -4,6 +4,7 @@ import type { AuthContext, JwtClaims } from '@/types/auth'
 import { jsonUnauthorized } from '@/lib/response'
 
 const FIELD_OFFICER_ROLE = 'FIELD_OFFICER'
+const RESPONSE_TEAM_MEMBER_ROLE = 'RESPONSE_TEAM_MEMBER'
 
 function readBearerToken(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -40,7 +41,7 @@ export function verifyJwtToken(token: string): AuthContext | null {
       return null
     }
 
-    if (decoded.role !== FIELD_OFFICER_ROLE) {
+    if (decoded.role !== FIELD_OFFICER_ROLE && decoded.role !== RESPONSE_TEAM_MEMBER_ROLE) {
       return null
     }
 

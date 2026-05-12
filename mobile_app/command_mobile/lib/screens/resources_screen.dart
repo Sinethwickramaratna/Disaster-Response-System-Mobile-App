@@ -54,8 +54,9 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
       
       final event = data['event'];
       final requestId = data['requestId']?.toString() ?? data['request_id']?.toString();
+          final deploymentId = data['deploymentId']?.toString() ?? data['deployment_id']?.toString();
       
-      debugPrint('📥 [ResourcesScreen] Socket Event: $event, RequestID: $requestId');
+          debugPrint('📥 [ResourcesScreen] Socket Event: $event, RequestID: $requestId, DeploymentID: $deploymentId');
 
       // Optimistic local update for deletion
       if (event == 'resourceRequest:deleted' && requestId != null) {
@@ -66,6 +67,10 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
           _resourceRequests = currentRequests;
         });
       }
+
+          if ((event == 'resource:statusUpdated' || event == 'resource:updated' || event == 'resource:removed') && deploymentId != null) {
+            _refreshResources(ignoreCache: true);
+          }
       
       // Always trigger a full refresh to ensure data consistency with the server
       // Small delay to allow DB operations to complete
@@ -243,23 +248,25 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
           _navigateTo(context, index);
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'request-resources-fab',
-        backgroundColor: primaryBlue,
-        foregroundColor: Colors.white,
-        elevation: 8,
-        onPressed: _isSubmittingRequest ? null : _openResourceRequestSheet,
-        child: _isSubmittingRequest
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : const Icon(Icons.add),
-      ),
+      floatingActionButton: AuthService.currentUser?.role == 'FIELD_OFFICER'
+          ? FloatingActionButton(
+              heroTag: 'request-resources-fab',
+              backgroundColor: primaryBlue,
+              foregroundColor: Colors.white,
+              elevation: 8,
+              onPressed: _isSubmittingRequest ? null : _openResourceRequestSheet,
+              child: _isSubmittingRequest
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.add),
+            )
+          : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: Stack(
         children: [
@@ -279,9 +286,11 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                     child: _buildCapacityCards(),
                   ),
                   const SizedBox(height: 24),
-                  _buildRequestedResources(),
-                  const SizedBox(height: 24),
-                  _buildAssignedResources(),
+                  if (AuthService.currentUser?.role == 'FIELD_OFFICER') ...[
+                    _buildRequestedResources(),
+                    const SizedBox(height: 24),
+                    _buildAssignedResources(),
+                  ],
                 ],
               ),
             ),
@@ -531,89 +540,90 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
             _buildCapacityMessageCard(_requestsMessage ?? 'No resource requests submitted yet')
           else
             ..._resourceRequests.map((request) {
-            final status = request.status.toUpperCase();
-            final statusColor = switch (status) {
-              'APPROVED' => Colors.tealAccent,
-              'FULFILLED' => Colors.greenAccent,
-              'REJECTED' => Colors.redAccent,
-              _ => Colors.amberAccent,
-            };
-            final createdAt = request.createdAt.toLocal().toString().split('.').first;
-            final reviewedAt = request.reviewedAt?.toLocal().toString().split('.').first;
-            final itemLabel = request.items.isEmpty
-                ? 'No item details'
-                : request.items
-                    .map((item) => '${item.resourceType} x${item.quantity} (${item.priority})')
-                    .join(', ');
+              final status = request.status.toUpperCase();
+              final statusColor = switch (status) {
+                'APPROVED' => Colors.tealAccent,
+                'FULFILLED' => Colors.greenAccent,
+                'REJECTED' => Colors.redAccent,
+                'IGNORED' => Colors.orangeAccent,
+                _ => Colors.amberAccent,
+              };
+              final createdAt = request.createdAt.toLocal().toString().split('.').first;
+              final reviewedAt = request.reviewedAt?.toLocal().toString().split('.').first;
+              final itemLabel = request.items.isEmpty
+                  ? 'No item details'
+                  : request.items
+                      .map((item) => '${item.resourceType} x${item.quantity} (${item.priority})')
+                      .join(', ');
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: borderColor),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Request ${request.requestId}',
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Requested Resource ${request.requestId}',
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: statusColor.withValues(alpha: 0.5)),
-                        ),
-                        child: Text(
-                          status,
-                          style: GoogleFonts.inter(
-                            color: statusColor,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.6,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+                          ),
+                          child: Text(
+                            status,
+                            style: GoogleFonts.inter(
+                              color: statusColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.6,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Incident: ${request.incidentId}',
-                    style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Requested: $createdAt',
-                    style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
-                  ),
-                  if (reviewedAt != null) ...[
-                    const SizedBox(height: 6),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     Text(
-                      'Reviewed: $reviewedAt',
+                      'Incident: ${request.incidentId}',
                       style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
                     ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Requested: $createdAt',
+                      style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
+                    ),
+                    if (reviewedAt != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Reviewed: $reviewedAt',
+                        style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Text(
+                      itemLabel,
+                      style: GoogleFonts.inter(color: Colors.white, fontSize: 12),
+                    ),
                   ],
-                  const SizedBox(height: 8),
-                  Text(
-                    itemLabel,
-                    style: GoogleFonts.inter(color: Colors.white, fontSize: 12),
-                  ),
-                ],
-              ),
-            );
-          }),
+                ),
+              );
+            }),
         ],
       ),
     );
@@ -641,72 +651,75 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
             _buildCapacityMessageCard('No assigned resources available')
           else
             ..._assignedResources.map((resource) {
-            final status = resource.status.toUpperCase();
-            final badgeColor = switch (status) {
-              'READY' => Colors.tealAccent,
-              'DEPLOYED' => Colors.amberAccent,
-              'DELIVERED' => Colors.greenAccent,
-              _ => Colors.blueAccent,
-            };
-            final dispatchedCount = _sumDispatchedItems(resource.itemsDispatched);
+              final status = resource.status.toUpperCase();
+              final badgeColor = switch (status) {
+                'READY' => Colors.tealAccent,
+                'DEPLOYED' => Colors.amberAccent,
+                'DELIVERED' => Colors.greenAccent,
+                _ => Colors.blueAccent,
+              };
+              final dispatchedCount = _sumDispatchedItems(resource.itemsDispatched);
+              final titleText = (status == 'DEPLOYED' || status == 'DELIVERED')
+                  ? 'Assigned Resource ${resource.deploymentId}'
+                  : 'Deployment ${resource.deploymentId}';
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: borderColor),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: primaryBlue.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: primaryBlue.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.inventory_2, color: primaryBlue),
                     ),
-                    child: Icon(Icons.inventory_2, color: primaryBlue),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Deployment ${resource.deploymentId}',
-                          style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Incident: ${resource.incidentId ?? 'N/A'}',
-                          style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Items: $dispatchedCount',
-                          style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
-                        ),
-                      ],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            titleText,
+                            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Incident: ${resource.incidentId ?? 'N/A'}',
+                            style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Items: $dispatchedCount',
+                            style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: badgeColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: badgeColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
+                      ),
+                      child: Text(
+                        status,
+                        style: GoogleFonts.inter(color: badgeColor, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                      ),
                     ),
-                    child: Text(
-                      status,
-                      style: GoogleFonts.inter(color: badgeColor, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
+                  ],
+                ),
+              );
+            }),
         ],
       ),
     );

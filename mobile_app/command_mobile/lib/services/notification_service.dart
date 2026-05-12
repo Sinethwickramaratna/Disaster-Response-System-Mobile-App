@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'socket_service.dart';
 import 'assignment_service.dart';
+import 'auth_service.dart';
 
 class NotificationService extends ChangeNotifier {
   NotificationService._internal() {
@@ -65,8 +66,9 @@ class NotificationService extends ChangeNotifier {
       String? title;
       String? message;
       String? dedupeId;
+      final isFieldOfficer = AuthService.currentUser?.role == 'FIELD_OFFICER';
 
-      if (data.containsKey('requestId')) {
+      if (data.containsKey('requestId') && isFieldOfficer) {
         final status = data['status']?.toString().toUpperCase() ?? 'PENDING';
         final updatedAt = data['updatedAt']?.toString() ?? data['updated_at']?.toString() ?? '';
         dedupeId = 'res:${data['requestId']}:$event:$status:$updatedAt';
@@ -79,8 +81,28 @@ class NotificationService extends ChangeNotifier {
           message = 'Request ${data['requestId']} was cancelled/removed';
         } else if (event == 'resourceRequest:created') {
           message = 'New request ${data['requestId']} submitted';
+        } else if (status == 'IGNORED') {
+          message = 'Resource request ignored for ${data['requestId']}';
         } else {
           message = 'Request ${data['requestId']} is now $status';
+        }
+      } else if (data.containsKey('deploymentId') && isFieldOfficer) {
+        final status = data['status']?.toString().toUpperCase() ?? 'PENDING';
+        final updatedAt = data['updatedAt']?.toString() ?? data['updated_at']?.toString() ?? '';
+        dedupeId = 'dep:${data['deploymentId']}:$event:$status:$updatedAt';
+
+        if (dedupeId.isNotEmpty && _processedIds.contains(dedupeId)) return;
+        _processedIds.add(dedupeId);
+
+        title = 'Assigned Resources';
+        if (status == 'DEPLOYED') {
+          message = 'Resources are Deployed for Incident ${data['incidentId'] ?? ''}'.trim();
+        } else if (status == 'DELIVERED') {
+          message = 'Resources were delivered for Incident ${data['incidentId'] ?? ''}'.trim();
+        } else if (status.isNotEmpty) {
+          message = 'Deployment ${data['deploymentId']} is now $status';
+        } else {
+          message = 'Resource deployment ${data['deploymentId']} was updated';
         }
       } else if (data.containsKey('assignmentId')) {
         final status = data['status']?.toString().toUpperCase() ?? 'ACTIVE';

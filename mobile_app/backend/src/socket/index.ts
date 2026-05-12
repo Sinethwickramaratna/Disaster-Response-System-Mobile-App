@@ -49,7 +49,7 @@ function authorizeSocket(socket: Socket) {
       typeof decoded.userId !== 'string' ||
       typeof decoded.email !== 'string' ||
       typeof decoded.role !== 'string' ||
-      decoded.role !== 'FIELD_OFFICER'
+      decoded.role !== 'FIELD_OFFICER' && decoded.role !== 'RESPONSE_TEAM_MEMBER'
     ) {
       return null
     }
@@ -151,6 +151,35 @@ export function getIO(existingServer?: HttpServer) {
               updatedAt: data.updated_at || data.updatedAt,
               event: eventName
             })
+          } else if (table.toLowerCase() === 'logisticsdeployment') {
+            const data = eventType === 'DELETE' ? payload.old : payload.new
+            const deploymentId = data.deployment_id || data.deploymentId || data.id
+            const userId = data.user_id || data.userId
+
+            if (!userId) {
+              console.warn('[socket.io] Missing userId for LogisticsDeployment event. Skipping broadcast.')
+              return
+            }
+
+            const status = String(data.status || '').toUpperCase()
+            const roomName = `officer:${userId}`
+            const eventName = eventType === 'DELETE' ? 'resource:removed' : 'resource:statusUpdated'
+            const payload = {
+              deploymentId,
+              deployment_id: deploymentId,
+              userId,
+              incidentId: data.incident_id,
+              status,
+              itemsDispatched: data.items_dispatched,
+              completedAt: data.completed_at,
+              updatedAt: data.updated_at || data.completed_at || data.dispatched_at || new Date().toISOString(),
+              event: eventName,
+              type: 'LogisticsDeployment'
+            }
+
+            console.log(`[socket.io] Broadcasting ${eventName} to ${roomName} for deployment ${deploymentId} status=${status}`)
+            io.to(roomName).emit(eventName, payload)
+            io.emit('resource:updated', payload)
           } else if (table.toLowerCase() === 'personnelassignment') {
             const userId = eventType === 'DELETE' ? payload.old.user_id : payload.new.user_id;
             

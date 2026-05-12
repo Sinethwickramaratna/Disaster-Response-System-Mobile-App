@@ -134,9 +134,11 @@ class _NotificationButtonState extends State<NotificationButton> {
                           final title = notification['title']?.toString() ?? 'Notification';
                           final message = notification['message']?.toString() ?? notification['body']?.toString() ?? '';
                           final type = notification['type']?.toString() ?? 'general';
-                          final isDelete = message.toLowerCase().contains('removed') || 
-                                           message.toLowerCase().contains('cancelled') ||
-                                           type.toLowerCase() == 'deleted';
+                          final combinedText = '$title $message $type'.toLowerCase();
+                          final isDelete = combinedText.contains('removed') || 
+                                           combinedText.contains('cancelled') ||
+                                           combinedText.contains('deleted') ||
+                                           combinedText.contains('unassigned');
 
                           return InkWell(
                             onTap: () {
