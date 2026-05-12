@@ -1,0 +1,135 @@
+import { createServer, type Server as HttpServer } from 'http'
+import { Server, type Socket } from 'socket.io'
+import jwt from 'jsonwebtoken'
+import type { JwtClaims } from '@/types/auth'
+
+type SocketStore = {
+  io?: Server
+  httpServer?: HttpServer
+  started?: boolean
+}
+
+type SocketData = {
+  user?: JwtClaims
+}
+
+const globalForSocket = globalThis as typeof globalThis & {
+  __j3SocketStore?: SocketStore
+}
+
+function getStore() {
+  if (!globalForSocket.__j3SocketStore) {
+    globalForSocket.__j3SocketStore = {}
+  }
+
+  return globalForSocket.__j3SocketStore
+}
+
+function getSocketPort() {
+  return Number(process.env.SOCKET_PORT ?? 4001)
+}
+
+function authorizeSocket(socket: Socket) {
+  const queryToken = socket.handshake.query?.token
+  const headerAuth = socket.handshake.headers?.authorization
+  const headerToken = headerAuth ? String(headerAuth).split(' ')[1] : undefined
+  const token = String(queryToken ?? headerToken ?? '').trim()
+
+  if (!token || !process.env.JWT_SECRET_KEY) {
+    return null
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY) as Partial<JwtClaims>
+
+    if (
+      !decoded ||
+      typeof decoded.userId !== 'string' ||
+      typeof decoded.email !== 'string' ||
+      typeof decoded.role !== 'string' ||
+      decoded.role !== 'FIELD_OFFICER'
+    ) {
+      return null
+    }
+
+    return decoded as JwtClaims
+  } catch {
+    return null
+  }
+}
+
+export function getIO() {
+  const store = getStore()
+
+  if (store.io) {
+    return store.io
+  }
+
+  const httpServer = createServer()
+  const io = new Server(httpServer, {
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST'],
+    },
+  })
+
+  io.use((socket, next) => {
+    const user = authorizeSocket(socket)
+
+    if (!user) {
+      return next(new Error('unauthorized'))
+    }
+
+    ;(socket.data as SocketData).user = user
+    socket.join(`officer:${user.userId}`)
+
+    return next()
+  })
+
+  io.on('connection', (socket) => {
+    const user = (socket.data as SocketData).user
+
+    if (user) {
+      socket.join(`officer:${user.userId}`)
+    }
+
+    socket.on('join:incident', (incidentId: string) => {
+      if (incidentId) {
+        socket.join(`incident:${incidentId}`)
+      }
+    })
+
+    socket.on('join:district', (district: string) => {
+      if (district) {
+        socket.join(`district:${district}`)
+      }
+    })
+
+    socket.on('disconnect', () => {
+      // Intentionally minimal. Mobile clients reconnect frequently.
+    })
+  })
+
+  const port = getSocketPort()
+  if (!store.started) {
+    httpServer.listen(port)
+    store.started = true
+  }
+
+  store.httpServer = httpServer
+  store.io = io
+
+  return io
+}
+
+export function emitToOfficer(userId: string, event: string, payload: unknown) {
+  getIO().to(`officer:${userId}`).emit(event, payload)
+}
+
+export function emitToIncident(incidentId: string, event: string, payload: unknown) {
+  getIO().to(`incident:${incidentId}`).emit(event, payload)
+}
+
+export function emitToDistrict(district: string, event: string, payload: unknown) {
+  getIO().to(`district:${district}`).emit(event, payload)
+}
