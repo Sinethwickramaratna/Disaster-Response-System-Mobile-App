@@ -118,12 +118,22 @@ type DivisionRow = {
 }
 
 function parsePositiveInteger(value: string | undefined) {
-  if (!value) {
+  const normalized = value?.trim()
+
+  if (!normalized || !/^\d+$/.test(normalized)) {
     return null
   }
 
-  const parsed = Number.parseInt(value, 10)
-  return Number.isInteger(parsed) && parsed > 0 && parsed.toString() === value ? parsed : null
+  const parsed = Number.parseInt(normalized, 10)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+function districtLookupVariants(value: string) {
+  const normalized = value.trim()
+  const withoutDistrictSuffix = normalized.replace(/\s+district$/i, '').trim()
+  const variants = [normalized, withoutDistrictSuffix]
+
+  return Array.from(new Set(variants.filter(Boolean)))
 }
 
 async function getDivisionById(divisionId: number) {
@@ -141,30 +151,65 @@ async function getDivisionById(divisionId: number) {
 }
 
 async function getDivisionByName(divisionName: string) {
-  const { data, error } = await supabase
+  const exactResult = await supabase
     .from('Division')
     .select('division_id, division_name, district, province, latitude, longitude')
     .eq('division_name', divisionName)
     .maybeSingle()
 
-  if (error) {
-    throw error
+  if (exactResult.error) {
+    throw exactResult.error
   }
 
-  return data as DivisionRow | null
-}
+  if (exactResult.data) {
+    return exactResult.data as DivisionRow
+  }
 
-async function getDivisionsByDistrict(district: string) {
   const { data, error } = await supabase
     .from('Division')
     .select('division_id, division_name, district, province, latitude, longitude')
-    .eq('district', district)
+    .ilike('division_name', divisionName)
+    .limit(1)
 
   if (error) {
     throw error
   }
 
-  return (data ?? []).filter((division) => division.division_id != null) as DivisionRow[]
+  return (data?.[0] ?? null) as DivisionRow | null
+}
+
+async function getDivisionsByDistrict(district: string) {
+  for (const variant of districtLookupVariants(district)) {
+    const exactResult = await supabase
+      .from('Division')
+      .select('division_id, division_name, district, province, latitude, longitude')
+      .eq('district', variant)
+
+    if (exactResult.error) {
+      throw exactResult.error
+    }
+
+    if (exactResult.data && exactResult.data.length > 0) {
+      return exactResult.data.filter((division) => division.division_id != null) as DivisionRow[]
+    }
+  }
+
+  for (const variant of districtLookupVariants(district)) {
+    const { data, error } = await supabase
+      .from('Division')
+      .select('division_id, division_name, district, province, latitude, longitude')
+      .ilike('district', variant)
+
+    if (error) {
+      throw error
+    }
+
+    if (data && data.length > 0) {
+      return data.filter((division) => division.division_id != null) as DivisionRow[]
+    }
+  }
+
+  return []
 }
 
 async function getShelterDivisionScope(query: NearbySheltersQuery) {

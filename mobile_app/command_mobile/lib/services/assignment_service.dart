@@ -101,10 +101,17 @@ class AssignmentService {
     
     try {
       final queryParameters = <String, String>{};
-      if (district != null && district.trim().isNotEmpty) {
-        queryParameters['district'] = district.trim();
-      } else if (zoneId != null) {
+      final assignedArea = district?.trim();
+      final assignedDivisionId = assignedArea == null || assignedArea.isEmpty
+          ? null
+          : int.tryParse(assignedArea);
+
+      if (zoneId != null) {
         queryParameters['zoneId'] = zoneId.toString();
+      } else if (assignedDivisionId != null && assignedDivisionId > 0) {
+        queryParameters['zoneId'] = assignedDivisionId.toString();
+      } else if (assignedArea != null && assignedArea.isNotEmpty) {
+        queryParameters['district'] = assignedArea;
       }
 
       final decoded = await _cachedJson(

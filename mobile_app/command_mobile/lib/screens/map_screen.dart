@@ -49,6 +49,7 @@ class _MapScreenState extends State<MapScreen> {
   bool _hasUserLocation = false;
   bool _isLocating = false;
   String? _locationStatus;
+  bool _hasCenteredOnShelters = false;
   // Track current center and zoom to avoid depending on MapController internals
   late LatLng _mapCenter;
   double _currentZoom = 13.0;
@@ -172,7 +173,7 @@ class _MapScreenState extends State<MapScreen> {
     _loadSheltersAndReports();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _showCurrentLocation) {
-        _loadCurrentLocation();
+        _loadCurrentLocation(recenter: false);
       }
     });
   }
@@ -202,9 +203,10 @@ class _MapScreenState extends State<MapScreen> {
             }
           }
 
-          if (!_hasUserLocation && firstWithCoords != null && firstWithCoords.latitude != null && firstWithCoords.longitude != null) {
+          if (!_hasCenteredOnShelters && firstWithCoords != null && firstWithCoords.latitude != null && firstWithCoords.longitude != null) {
             final newCenter = LatLng(firstWithCoords.latitude!, firstWithCoords.longitude!);
             _mapCenter = newCenter;
+            _hasCenteredOnShelters = true;
             _mapController.move(newCenter, _currentZoom);
           }
         } catch (e) {
@@ -225,7 +227,7 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _loadCurrentLocation() async {
+  Future<void> _loadCurrentLocation({bool recenter = true}) async {
     if (!_showCurrentLocation) return;
     if (_isLocating) return;
 
@@ -296,9 +298,11 @@ class _MapScreenState extends State<MapScreen> {
         _isLocating = false;
       });
 
-      _mapCenter = location;
-      _currentZoom = 15.0;
-      _mapController.move(location, _currentZoom);
+      if (recenter) {
+        _mapCenter = location;
+        _currentZoom = 15.0;
+        _mapController.move(location, _currentZoom);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
