@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:http/http.dart' as http;
 
 import '../config/env.dart';
 import 'auth_service.dart';
@@ -40,6 +41,17 @@ class SocketService {
 
     final token = await AuthService.getToken();
     if (token == null || token.isEmpty) return;
+
+    // Initialize socket on server if needed (Integrated server warm-up)
+    try {
+      final bridgeUrl = Uri.parse('${Env.apiBaseUrl}/api/socket');
+      await http.get(
+        bridgeUrl,
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('[SocketService] Bridge warm-up note: $e');
+    }
 
     final options = io.OptionBuilder()
         .setTransports(['websocket'])

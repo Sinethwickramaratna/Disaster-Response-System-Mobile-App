@@ -26,7 +26,7 @@ function getStore() {
 }
 
 function getSocketPort() {
-  return Number(process.env.SOCKET_PORT ?? 4001)
+  return Number(process.env.SOCKET_PORT || process.env.PORT || 4001)
 }
 
 function authorizeSocket(socket: Socket) {
@@ -58,19 +58,26 @@ function authorizeSocket(socket: Socket) {
   }
 }
 
-export function getIO() {
+/**
+ * Initializes or retrieves the Socket.IO instance.
+ * @param existingServer Optional existing HTTP server to attach to.
+ */
+export function getIO(existingServer?: HttpServer) {
   const store = getStore()
 
   if (store.io) {
     return store.io
   }
 
-  const httpServer = createServer()
+  // If no server is provided and we haven't created one, create a standalone one
+  const httpServer = existingServer || createServer()
   const io = new Server(httpServer, {
     cors: {
       origin: '*',
       methods: ['GET', 'POST'],
     },
+    // Required for some hosting providers
+    addTrailingSlash: false,
   })
 
   io.use((socket, next) => {
@@ -81,8 +88,6 @@ export function getIO() {
     }
 
     ;(socket.data as SocketData).user = user
-    socket.join(`officer:${user.userId}`)
-
     return next()
   })
 
@@ -111,11 +116,14 @@ export function getIO() {
     })
   })
 
-  const port = getSocketPort()
-  if (!store.started) {
-    httpServer.listen(port)
-    console.log(`[socket.io] server started on port ${port}`)
-    store.started = true
+  // Only start listening if we created a standalone server
+  if (!existingServer) {
+    const port = getSocketPort()
+    if (!store.started) {
+      httpServer.listen(port)
+      console.log(`[socket.io] server started on port ${port}`)
+      store.started = true
+    }
   }
 
   store.httpServer = httpServer

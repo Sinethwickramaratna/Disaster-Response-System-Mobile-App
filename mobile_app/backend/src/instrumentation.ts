@@ -1,12 +1,5 @@
-import { getIO } from '@/socket'
-
+// Instrumentation is disabled for Socket.IO to favor the integrated API route pattern.
+// This ensures that Socket.IO shares the same port as the Next.js server on Railway.
 export async function register() {
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
-    try {
-      getIO()
-      console.log('[socket.io] initialized during backend startup')
-    } catch (error) {
-      console.error('[socket.io] startup initialization failed', error)
-    }
-  }
+  // No-op
 }
