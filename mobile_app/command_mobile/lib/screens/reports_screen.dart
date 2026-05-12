@@ -6,6 +6,7 @@ import '../components/app_drawer.dart';
 import '../components/notification_button.dart';
 import '../components/nav_bar.dart';
 import '../services/assignment_service.dart';
+import '../services/socket_service.dart';
 import '../models/assignment.dart';
 
 /// Field Reports (Incoming Reports) screen.
@@ -32,7 +33,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     _loadReports();
 
     _socketSub = SocketService.instance.onAssignmentUpdate.listen((_) {
-      if (mounted) _loadReports();
+      if (mounted) _loadReports(ignoreCache: true);
     });
   }
 
@@ -42,9 +43,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     super.dispose();
   }
 
-  Future<void> _loadReports() async {
+  Future<void> _loadReports({bool ignoreCache = false}) async {
     setState(() => _isLoading = true);
-    final response = await AssignmentService.fetchIncidents();
+    final response = await AssignmentService.fetchIncidents(ignoreCache: ignoreCache);
     if (!mounted) return;
     setState(() {
       _incidents = response;

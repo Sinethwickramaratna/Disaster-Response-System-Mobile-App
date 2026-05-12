@@ -57,6 +57,7 @@ class AssignmentService {
   static Future<List<AssignmentIncident>> fetchIncidents({
     String? status,
     String? severity,
+    bool ignoreCache = false,
   }) async {
     final query = <String, String>{};
     if (status != null && status.trim().isNotEmpty) {
@@ -69,6 +70,7 @@ class AssignmentService {
     final decoded = await _cachedJson(
       '/api/assignments/incidents',
       queryParameters: query,
+      ignoreCache: ignoreCache,
     );
 
     return _asList(decoded)
@@ -85,8 +87,8 @@ class AssignmentService {
     return _asList(decoded).map(AlertData.fromJson).toList(growable: false);
   }
 
-  static Future<ResourcesResponse?> fetchResources() async {
-    final decoded = await _cachedJson('/api/resources/assigned');
+  static Future<ResourcesResponse?> fetchResources({bool ignoreCache = false}) async {
+    final decoded = await _cachedJson('/api/resources/assigned', ignoreCache: ignoreCache);
     final resources = _asList(decoded)
         .map(ResourceDeployment.fromJson)
         .toList(growable: false);
@@ -94,8 +96,8 @@ class AssignmentService {
     return _buildResourcesResponse(resources);
   }
 
-  static Future<List<ResourceRequestData>> fetchMyResourceRequests() async {
-    final decoded = await _cachedJson('/api/resources/requests/mine');
+  static Future<List<ResourceRequestData>> fetchMyResourceRequests({bool ignoreCache = false}) async {
+    final decoded = await _cachedJson('/api/resources/requests/mine', ignoreCache: ignoreCache);
     return _asList(decoded)
         .map(ResourceRequestData.fromJson)
         .toList(growable: false);
@@ -237,8 +239,14 @@ class AssignmentService {
   static Future<dynamic> _cachedJson(
     String path, {
     Map<String, String>? queryParameters,
+    bool ignoreCache = false,
   }) async {
     final cacheKey = _cacheKey(path, queryParameters);
+    
+    if (ignoreCache) {
+      _cache.remove(cacheKey);
+    }
+
     final cached = _cache[cacheKey];
     if (cached != null && !cached.isExpired) {
       return cached.value;

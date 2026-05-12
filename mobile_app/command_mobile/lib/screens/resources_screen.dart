@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/assignment.dart';
 import '../services/assignment_service.dart';
 import '../services/auth_service.dart';
+import '../services/socket_service.dart';
 import '../components/app_drawer.dart';
 import '../components/notification_button.dart';
 import '../components/nav_bar.dart';
@@ -46,17 +47,20 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
 
     _socketSub = SocketService.instance.onAssignmentUpdate.listen((_) {
       if (mounted) {
-        _refreshResources();
-        _refreshResourceRequests();
-        _refreshAssignedIncidents();
+        _refreshResources(ignoreCache: true);
+        _refreshResourceRequests(ignoreCache: true);
+        _refreshAssignedIncidents(ignoreCache: true);
       }
     });
   }
 
-  Future<void> _refreshResources() async {
-    setState(() => _isLoadingResources = true);
+  Future<void> _refreshResources({bool ignoreCache = false}) async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingResources = true;
+    });
     try {
-      final response = await AssignmentService.fetchResources();
+      final response = await AssignmentService.fetchResources(ignoreCache: ignoreCache);
       if (!mounted) {
         return;
       }
@@ -73,14 +77,15 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     }
   }
 
-  Future<void> _refreshResourceRequests() async {
+  Future<void> _refreshResourceRequests({bool ignoreCache = false}) async {
+    if (!mounted) return;
     setState(() {
       _isLoadingRequests = true;
       _requestsMessage = null;
     });
 
     try {
-      final requests = await AssignmentService.fetchMyResourceRequests();
+      final requests = await AssignmentService.fetchMyResourceRequests(ignoreCache: ignoreCache);
       if (!mounted) return;
 
       setState(() {
@@ -155,9 +160,9 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     super.dispose();
   }
 
-  Future<void> _refreshAssignedIncidents() async {
+  Future<void> _refreshAssignedIncidents({bool ignoreCache = false}) async {
     try {
-      final incidents = await AssignmentService.fetchIncidents();
+      final incidents = await AssignmentService.fetchIncidents(ignoreCache: ignoreCache);
       if (!mounted) return;
 
       setState(() {
@@ -863,7 +868,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
 
                                     if (success) {
                                       Navigator.pop(ctx);
-                                      await _refreshResourceRequests();
+                                      await _refreshResourceRequests(ignoreCache: true);
                                       ScaffoldMessenger.of(this.context).showSnackBar(
                                         const SnackBar(content: Text('Resource request submitted')),
                                       );
