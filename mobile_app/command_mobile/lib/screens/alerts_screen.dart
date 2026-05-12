@@ -84,6 +84,14 @@ class _AlertsScreenState extends State<AlertsScreen> {
           child: Container(height: 1, color: Colors.white.withValues(alpha: 0.1)),
         ),
       ),
+      bottomNavigationBar: BottomNav(
+        currentIndex: _currentNavIndex,
+        onTap: (index) {
+          if (index == _currentNavIndex) return;
+          setState(() => _currentNavIndex = index);
+          _navigateTo(context, index);
+        },
+      ),
       body: Stack(
         children: [
           SingleChildScrollView(
@@ -117,19 +125,6 @@ class _AlertsScreenState extends State<AlertsScreen> {
                       ,
                 const SizedBox(height: 24),
               ],
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: BottomNav(
-              currentIndex: _currentNavIndex,
-              onTap: (index) {
-                if (index == _currentNavIndex) return;
-                setState(() => _currentNavIndex = index);
-                _navigateTo(context, index);
-              },
             ),
           ),
         ],

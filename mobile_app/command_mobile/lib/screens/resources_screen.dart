@@ -23,33 +23,71 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
   final Color textSecondary = const Color(0xFF9CA3AF);
   final Color primaryBlue = const Color(0xFF3B82F6);
 
-  List<Map<String, dynamic>> _activeUnits = _defaultUnits();
+  List<ResourceDeployment> _assignedResources = const [];
+  List<ResourceRequestData> _resourceRequests = const [];
   List<ShelterData> _nearbyShelters = const [];
   List<AssignmentIncident> _assignedIncidents = const [];
+  bool _isLoadingResources = false;
+  bool _isLoadingRequests = false;
   bool _isLoadingShelters = false;
   bool _isSubmittingRequest = false;
+  String? _requestsMessage;
   String? _shelterMessage;
 
   @override
   void initState() {
     super.initState();
     _refreshResources();
+    _refreshResourceRequests();
     _refreshNearbyShelters();
     _refreshAssignedIncidents();
   }
 
   Future<void> _refreshResources() async {
+    setState(() => _isLoadingResources = true);
     try {
       final response = await AssignmentService.fetchResources();
-      if (!mounted || response == null || response.resources.isEmpty) {
+      if (!mounted) {
         return;
       }
 
       setState(() {
-        _activeUnits = response.resources.map(_unitFromResource).toList();
+        _assignedResources = response?.resources ?? const [];
       });
     } catch (_) {
-      // Keep the seeded cards when the API is unavailable.
+      // Keep existing cards when the API is unavailable.
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingResources = false);
+      }
+    }
+  }
+
+  Future<void> _refreshResourceRequests() async {
+    setState(() {
+      _isLoadingRequests = true;
+      _requestsMessage = null;
+    });
+
+    try {
+      final requests = await AssignmentService.fetchMyResourceRequests();
+      if (!mounted) return;
+
+      setState(() {
+        _resourceRequests = requests;
+        if (requests.isEmpty) {
+          _requestsMessage = 'No resource requests submitted yet';
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _requestsMessage = 'Unable to load requested resources';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingRequests = false);
+      }
     }
   }
 
@@ -114,27 +152,6 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     }
   }
 
-  static List<Map<String, dynamic>> _defaultUnits() {
-    return [
-    {
-      "id": "unit-1",
-      "name": "SLN Rapid Rescue",
-      "pax": 12,
-      "location": "Grid 7A",
-      "status": "Active Search",
-      "type": "rescue"
-    },
-    {
-      "id": "unit-2",
-      "name": "Medical Corps B",
-      "pax": 24,
-      "location": "ETA 14m",
-      "status": "In Transit",
-      "type": "medical"
-    }
-  ];
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -172,57 +189,57 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
           ),
         ),
       ),
+      bottomNavigationBar: BottomNav(
+        currentIndex: currentIndex,
+        onTap: (index) {
+          if (index == currentIndex) return;
+          setState(() => currentIndex = index);
+          _navigateTo(context, index);
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'request-resources-fab',
+        backgroundColor: primaryBlue,
+        foregroundColor: Colors.white,
+        elevation: 8,
+        onPressed: _isSubmittingRequest ? null : _openResourceRequestSheet,
+        child: _isSubmittingRequest
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Icon(Icons.add),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: Stack(
         children: [
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
+              padding: const EdgeInsets.fromLTRB(0, 16, 0, 90),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildSearchAndFilter(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildSearchAndFilter(),
+                  ),
                   const SizedBox(height: 24),
-                  _buildCapacityCards(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildCapacityCards(),
+                  ),
                   const SizedBox(height: 24),
-                  _buildActiveUnits(),
+                  _buildRequestedResources(),
+                  const SizedBox(height: 24),
+                  _buildAssignedResources(),
                 ],
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: BottomNav(
-              currentIndex: currentIndex,
-              onTap: (index) {
-                if (index == currentIndex) return;
-                setState(() => currentIndex = index);
-                _navigateTo(context, index);
-              },
-            ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 78,
-            child: FloatingActionButton(
-              heroTag: 'request-resources-fab',
-              backgroundColor: primaryBlue,
-              foregroundColor: Colors.white,
-              elevation: 8,
-              onPressed: _isSubmittingRequest ? null : _openResourceRequestSheet,
-              child: _isSubmittingRequest
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Icon(Icons.add),
-            ),
-          )
         ],
       ),
     );
@@ -248,7 +265,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                   child: TextField(
                     style: GoogleFonts.inter(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: 'Search units, zones...',
+                      hintText: 'Search requests, incidents...',
                       hintStyle: GoogleFonts.inter(color: textSecondary, fontSize: 14),
                       border: InputBorder.none,
                       isDense: true,
@@ -308,6 +325,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
 
   Widget _buildCapacityMessageCard(String message) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cardColor,
@@ -445,127 +463,207 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     );
   }
 
-  Widget _buildActiveUnits() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'ACTIVE UNITS',
-              style: GoogleFonts.inter(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
-                fontSize: 14,
-              ),
+  Widget _buildRequestedResources() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'REQUESTED RESOURCES',
+            style: GoogleFonts.inter(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+              fontSize: 14,
             ),
-            Row(
-              children: [
-                Text('Sort', style: GoogleFonts.inter(color: textSecondary, fontSize: 12)),
-                const SizedBox(width: 4),
-                Icon(Icons.sort, color: textSecondary, size: 16),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ..._activeUnits.map((unit) {
-          final isAlert = unit['status'] == 'Active Search';
-          final badgeColor = isAlert ? Colors.redAccent : Colors.tealAccent;
+          ),
+          const SizedBox(height: 12),
+          if (_isLoadingRequests && _resourceRequests.isEmpty)
+            _buildCapacityMessageCard('Loading requested resources...')
+          else if (_resourceRequests.isEmpty)
+            _buildCapacityMessageCard(_requestsMessage ?? 'No resource requests submitted yet')
+          else
+            ..._resourceRequests.map((request) {
+            final status = request.status.toUpperCase();
+            final statusColor = switch (status) {
+              'APPROVED' => Colors.tealAccent,
+              'FULFILLED' => Colors.greenAccent,
+              'REJECTED' => Colors.redAccent,
+              _ => Colors.amberAccent,
+            };
+            final createdAt = request.createdAt.toLocal().toString().split('.').first;
+            final reviewedAt = request.reviewedAt?.toLocal().toString().split('.').first;
+            final itemLabel = request.items.isEmpty
+                ? 'No item details'
+                : request.items
+                    .map((item) => '${item.resourceType} x${item.quantity} (${item.priority})')
+                    .join(', ');
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: borderColor),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: primaryBlue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    unit['type'] == 'medical' ? Icons.local_hospital : Icons.security,
-                    color: primaryBlue,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        unit['name'],
-                        style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                      Expanded(
+                        child: Text(
+                          'Request ${request.requestId}',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.group, color: textSecondary, size: 14),
-                          const SizedBox(width: 4),
-                          Text('${unit['pax']} Pax', style: GoogleFonts.inter(color: textSecondary, fontSize: 12)),
-                          const SizedBox(width: 12),
-                          Icon(Icons.location_on, color: textSecondary, size: 14),
-                          const SizedBox(width: 4),
-                          Text(unit['location'], style: GoogleFonts.inter(color: textSecondary, fontSize: 12)),
-                        ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+                        ),
+                        child: Text(
+                          status,
+                          style: GoogleFonts.inter(
+                            color: statusColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: badgeColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Incident: ${request.incidentId}',
+                    style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
                   ),
-                  child: Text(
-                    unit['status'].toUpperCase(),
-                    style: GoogleFonts.inter(color: badgeColor, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Requested: $createdAt',
+                    style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
                   ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
+                  if (reviewedAt != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Reviewed: $reviewedAt',
+                      style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(
+                    itemLabel,
+                    style: GoogleFonts.inter(color: Colors.white, fontSize: 12),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 
-  void _navigateTo(BuildContext context, int index) {
-    const routes = {
-      0: '/dashboard',
-      1: '/reports',
-      2: '/map',
-      3: '/resources',
-      4: '/alerts',
-    };
-    final route = routes[index];
-    if (route != null) {
-      Navigator.pushReplacementNamed(context, route);
-    }
-  }
+  Widget _buildAssignedResources() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'ASSIGNED RESOURCES',
+            style: GoogleFonts.inter(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_isLoadingResources && _assignedResources.isEmpty)
+            _buildCapacityMessageCard('Loading assigned resources...')
+          else if (_assignedResources.isEmpty)
+            _buildCapacityMessageCard('No assigned resources available')
+          else
+            ..._assignedResources.map((resource) {
+            final status = resource.status.toUpperCase();
+            final badgeColor = switch (status) {
+              'READY' => Colors.tealAccent,
+              'DEPLOYED' => Colors.amberAccent,
+              'DELIVERED' => Colors.greenAccent,
+              _ => Colors.blueAccent,
+            };
+            final dispatchedCount = _sumDispatchedItems(resource.itemsDispatched);
 
-  Map<String, dynamic> _unitFromResource(ResourceDeployment resource) {
-    final dispatchedCount = _sumDispatchedItems(resource.itemsDispatched);
-    final idFragment = resource.deploymentId.length > 8 ? resource.deploymentId.substring(0, 8) : resource.deploymentId;
-
-    return {
-      "id": resource.deploymentId,
-      "name": 'Deployment ${idFragment.toUpperCase()}',
-      "pax": dispatchedCount > 0 ? dispatchedCount : 1,
-      "location": resource.incidentId != null ? 'Incident ${resource.incidentId}' : 'Assigned',
-      "status": resource.status,
-      "type": resource.status == 'READY' ? 'rescue' : 'medical'
-    };
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: primaryBlue.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.inventory_2, color: primaryBlue),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Deployment ${resource.deploymentId}',
+                          style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Incident: ${resource.incidentId ?? 'N/A'}',
+                          style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Items: $dispatchedCount',
+                          style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: badgeColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
+                    ),
+                    child: Text(
+                      status,
+                      style: GoogleFonts.inter(color: badgeColor, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
   }
 
   int _sumDispatchedItems(dynamic itemsDispatched) {
@@ -581,6 +679,20 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     }
 
     return int.tryParse(itemsDispatched?.toString() ?? '') ?? 0;
+  }
+
+  void _navigateTo(BuildContext context, int index) {
+    const routes = {
+      0: '/dashboard',
+      1: '/reports',
+      2: '/map',
+      3: '/resources',
+      4: '/alerts',
+    };
+    final route = routes[index];
+    if (route != null) {
+      Navigator.pushReplacementNamed(context, route);
+    }
   }
 
   Future<void> _openResourceRequestSheet() async {
@@ -735,6 +847,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
 
                                     if (success) {
                                       Navigator.pop(ctx);
+                                      await _refreshResourceRequests();
                                       ScaffoldMessenger.of(this.context).showSnackBar(
                                         const SnackBar(content: Text('Resource request submitted')),
                                       );

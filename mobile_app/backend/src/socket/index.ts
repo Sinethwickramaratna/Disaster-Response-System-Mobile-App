@@ -91,6 +91,7 @@ export function getIO() {
 
     if (user) {
       socket.join(`officer:${user.userId}`)
+      console.log(`[socket.io] frontend connected user=${user.userId} socket=${socket.id}`)
     }
 
     socket.on('join:incident', (incidentId: string) => {
@@ -106,13 +107,14 @@ export function getIO() {
     })
 
     socket.on('disconnect', () => {
-      // Intentionally minimal. Mobile clients reconnect frequently.
+      console.log(`[socket.io] frontend disconnected socket=${socket.id}`)
     })
   })
 
   const port = getSocketPort()
   if (!store.started) {
     httpServer.listen(port)
+    console.log(`[socket.io] server started on port ${port}`)
     store.started = true
   }
 

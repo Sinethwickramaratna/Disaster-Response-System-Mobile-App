@@ -96,6 +96,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
         ),
       ),
+      bottomNavigationBar: BottomNav(
+        currentIndex: _currentNavIndex,
+        onTap: (index) {
+          if (index == _currentNavIndex) return;
+          setState(() => _currentNavIndex = index);
+          _navigateTo(context, index);
+        },
+      ),
       body: Stack(
         children: [
           // ─── Scrollable content ───
@@ -185,20 +193,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ],
           ),
 
-          // ─── Bottom nav (fixed) ───
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: BottomNav(
-              currentIndex: _currentNavIndex,
-              onTap: (index) {
-                if (index == _currentNavIndex) return;
-                setState(() => _currentNavIndex = index);
-                _navigateTo(context, index);
-              },
-            ),
-          ),
         ],
       ),
     );

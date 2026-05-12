@@ -208,6 +208,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _hasLoadedDashboard = true;
       _nextRefreshAt = DateTime.now().add(const Duration(minutes: 5));
     });
+
+    for (final assignment in incidents) {
+      final incidentId = assignment.incidentId;
+      if (incidentId != null && incidentId.trim().isNotEmpty) {
+        SocketService.instance.joinIncident(incidentId);
+      }
+    }
   }
 
   void _startLiveClock() {
@@ -443,6 +450,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
+      bottomNavigationBar: BottomNav(
+        currentIndex: currentIndex,
+        onTap: (index) {
+          if (index == currentIndex) return;
+          setState(() => currentIndex = index);
+          _navigateTo(context, index);
+        },
+      ),
       body: Stack(
         children: [
           SafeArea(
@@ -462,19 +477,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: BottomNav(
-              currentIndex: currentIndex,
-              onTap: (index) {
-                if (index == currentIndex) return;
-                setState(() => currentIndex = index);
-                _navigateTo(context, index);
-              },
-            ),
-          )
         ],
       ),
     );

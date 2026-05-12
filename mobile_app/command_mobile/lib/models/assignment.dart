@@ -322,6 +322,65 @@ class ResourceDeployment {
   }
 }
 
+class ResourceRequestData {
+  final String requestId;
+  final String incidentId;
+  final String status;
+  final DateTime createdAt;
+  final DateTime? reviewedAt;
+  final List<ResourceRequestItem> items;
+
+  ResourceRequestData({
+    required this.requestId,
+    required this.incidentId,
+    required this.status,
+    required this.createdAt,
+    this.reviewedAt,
+    required this.items,
+  });
+
+  factory ResourceRequestData.fromJson(Map<String, dynamic> json) {
+    final rawItems = _readValue(json, ['items']);
+    final items = rawItems is List
+        ? rawItems
+            .whereType<Map<String, dynamic>>()
+            .map(ResourceRequestItem.fromJson)
+            .toList(growable: false)
+        : const <ResourceRequestItem>[];
+
+    return ResourceRequestData(
+      requestId: _asString(_readValue(json, ['requestId', 'request_id']), 'unknown-request'),
+      incidentId: _asString(_readValue(json, ['incidentId', 'incident_id']), 'unknown-incident'),
+      status: _asString(_readValue(json, ['status']), 'PENDING'),
+      createdAt: _asDateTime(_readValue(json, ['createdAt', 'created_at'])),
+      reviewedAt: _readValue(json, ['reviewedAt', 'reviewed_at']) != null
+          ? _asDateTime(_readValue(json, ['reviewedAt', 'reviewed_at']))
+          : null,
+      items: items,
+    );
+  }
+}
+
+class ResourceRequestItem {
+  final String resourceType;
+  final int quantity;
+  final String priority;
+
+  const ResourceRequestItem({
+    required this.resourceType,
+    required this.quantity,
+    required this.priority,
+  });
+
+  factory ResourceRequestItem.fromJson(Map<String, dynamic> json) {
+    return ResourceRequestItem(
+      resourceType: _asString(_readValue(json, ['resourceType', 'resource_type']), 'UNKNOWN'),
+      quantity: _asInt(_readValue(json, ['quantity']), 0),
+      priority: _asString(_readValue(json, ['priority']), 'MEDIUM'),
+    );
+  }
+}
+
 class ShelterData {
   final int shelterId;
   final String name;

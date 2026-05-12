@@ -31,7 +31,7 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   int _currentNavIndex = 2; // Map tab
   final MapController _mapController = MapController();
   // Default to Sri Lanka geographic center; updated when shelters load
@@ -49,6 +49,7 @@ class _MapScreenState extends State<MapScreen> {
   bool _hasUserLocation = false;
   bool _isLocating = false;
   String? _locationStatus;
+  bool _retryLocationWhenResumed = false;
   bool _hasCenteredOnShelters = false;
   // Track current center and zoom to avoid depending on MapController internals
   late LatLng _mapCenter;
@@ -56,9 +57,22 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _mapController.dispose();
     _updatesSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !_retryLocationWhenResumed) {
+      return;
+    }
+
+    _retryLocationWhenResumed = false;
+    if (mounted && _showCurrentLocation) {
+      unawaited(_loadCurrentLocation());
+    }
   }
 
   void _showLayersMenu() {
@@ -162,6 +176,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadIncidents();
     _updatesSub = IncidentService.updates.listen((inc) {
       final idx = _incidents.indexWhere((i) => i.id == inc.id);
@@ -224,6 +239,45 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<bool> _askToEnableLocationServices() async {
+    if (!mounted) return false;
+
+    final shouldOpenSettings = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Enable location services'),
+          content: const Text(
+            'Location services are turned off. Open phone settings to turn them on?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Open settings'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldOpenSettings != true) {
+      return false;
+    }
+
+    _retryLocationWhenResumed = true;
+    await Geolocator.openLocationSettings();
+
+    final enabled = await Geolocator.isLocationServiceEnabled();
+    if (enabled) {
+      _retryLocationWhenResumed = false;
+    }
+    return enabled;
+  }
+
   Future<void> _loadCurrentLocation({bool recenter = true}) async {
     if (!_showCurrentLocation) return;
     if (_isLocating) return;
@@ -241,6 +295,10 @@ class _MapScreenState extends State<MapScreen> {
           _locationStatus = 'Location services are disabled.';
           _isLocating = false;
         });
+        final enabled = await _askToEnableLocationServices();
+        if (enabled && mounted) {
+          await _loadCurrentLocation(recenter: recenter);
+        }
         return;
       }
 
@@ -330,6 +388,11 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
 
+    if (!_showCurrentLocation) {
+      setState(() => _showCurrentLocation = true);
+    }
+    unawaited(_loadCurrentLocation());
+
     _currentZoom = 13.0;
     _mapController.move(_center, _currentZoom);
   }
@@ -371,6 +434,14 @@ class _MapScreenState extends State<MapScreen> {
             color: Colors.white.withValues(alpha: 0.1),
           ),
         ),
+      ),
+      bottomNavigationBar: BottomNav(
+        currentIndex: _currentNavIndex,
+        onTap: (index) {
+          if (index == _currentNavIndex) return;
+          setState(() => _currentNavIndex = index);
+          _navigateTo(context, index);
+        },
       ),
       body: Stack(
         children: [
@@ -568,22 +639,6 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // ═══════════════════════════════════════
-          //  BOTTOM NAV
-          // ═══════════════════════════════════════
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: BottomNav(
-              currentIndex: _currentNavIndex,
-              onTap: (index) {
-                if (index == _currentNavIndex) return;
-                setState(() => _currentNavIndex = index);
-                _navigateTo(context, index);
-              },
-            ),
-          ),
         ],
       ),
     );

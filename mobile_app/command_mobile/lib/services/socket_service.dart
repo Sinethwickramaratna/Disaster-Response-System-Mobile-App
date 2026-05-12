@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../config/env.dart';
@@ -65,7 +66,47 @@ class SocketService {
     _socket?.emit(event, payload);
   }
 
+  void joinDistrict(String district) {
+    final normalized = district.trim();
+    if (normalized.isEmpty || _socket == null || !connected) return;
+    _socket!.emit('join:district', normalized);
+    debugPrint('[SocketService] join:district => $normalized');
+  }
+
+  void joinIncident(String incidentId) {
+    final normalized = incidentId.trim();
+    if (normalized.isEmpty || _socket == null || !connected) return;
+    _socket!.emit('join:incident', normalized);
+    debugPrint('[SocketService] join:incident => $normalized');
+  }
+
   void _bindEvents(io.Socket socket) {
+    socket.onConnect((_) {
+      final district = AuthService.currentUser?.zone ?? '';
+      debugPrint('[SocketService] connected to ${Env.apiSocketUrl}');
+      if (district.trim().isNotEmpty) {
+        joinDistrict(district);
+      }
+      debugPrint('[SocketService] frontend socket.io connected: ${socket.connected}');
+    });
+
+    socket.onReconnect((_) {
+      final district = AuthService.currentUser?.zone ?? '';
+      debugPrint('[SocketService] reconnected to ${Env.apiSocketUrl}');
+      if (district.trim().isNotEmpty) {
+        joinDistrict(district);
+      }
+    });
+
+    socket.onConnectError((error) {
+      debugPrint('[SocketService] connect error: $error');
+    });
+
+    socket.onDisconnect((reason) {
+      debugPrint('[SocketService] disconnected: $reason');
+      debugPrint('[SocketService] frontend socket.io connected: ${socket.connected}');
+    });
+
     for (final eventName in const [
       'incident:assigned',
       'incident:updated',

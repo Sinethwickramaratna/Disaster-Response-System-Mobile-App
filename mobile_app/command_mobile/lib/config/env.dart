@@ -15,7 +15,7 @@ class Env {
     final uri = Uri.parse(apiBaseUrl);
     final socketPort = int.tryParse(dotenv.env['SOCKET_PORT'] ?? '');
     return uri
-        .replace(port: socketPort ?? (uri.hasPort ? uri.port : 3001))
+        .replace(port: socketPort ?? (uri.hasPort ? uri.port : 4001))
         .toString()
         .replaceFirst(RegExp(r'/$'), '');
   }

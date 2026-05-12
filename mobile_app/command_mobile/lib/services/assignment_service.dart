@@ -94,6 +94,13 @@ class AssignmentService {
     return _buildResourcesResponse(resources);
   }
 
+  static Future<List<ResourceRequestData>> fetchMyResourceRequests() async {
+    final decoded = await _cachedJson('/api/resources/requests/mine');
+    return _asList(decoded)
+        .map(ResourceRequestData.fromJson)
+        .toList(growable: false);
+  }
+
   static Future<List<ShelterData>> fetchNearbyShelters({int? zoneId, String? district}) async {
     print('🔍 DEBUG: Fetching nearby shelters for zoneId=$zoneId district=$district');
     print('🔍 DEBUG: API Base URL: ${Env.apiBaseUrl}');
