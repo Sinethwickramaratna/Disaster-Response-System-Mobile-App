@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../components/app_drawer.dart';
@@ -42,7 +43,12 @@ class _MapScreenState extends State<MapScreen> {
   bool _showShelters = true;
   bool _showReports = true;
   bool _showIncidents = true;
+  bool _showCurrentLocation = true;
   String _baseLayer = 'osm';
+  LatLng? _currentLocation;
+  bool _hasUserLocation = false;
+  bool _isLocating = false;
+  String? _locationStatus;
   // Track current center and zoom to avoid depending on MapController internals
   late LatLng _mapCenter;
   double _currentZoom = 13.0;
@@ -123,6 +129,26 @@ class _MapScreenState extends State<MapScreen> {
                     setStState(() {});
                   },
                 ),
+                SwitchListTile(
+                  title: const Text('Show current location'),
+                  subtitle: const Text('Use the phone GPS to place a live marker'),
+                  value: _showCurrentLocation,
+                  onChanged: (v) {
+                    setState(() {
+                      _showCurrentLocation = v;
+                      if (!v) {
+                        _currentLocation = null;
+                        _hasUserLocation = false;
+                        _locationStatus = 'Current location disabled.';
+                      }
+                    });
+                    setStState(() {});
+
+                    if (v) {
+                      _loadCurrentLocation();
+                    }
+                  },
+                ),
                 const SizedBox(height: 8),
               ],
             ),
@@ -144,6 +170,11 @@ class _MapScreenState extends State<MapScreen> {
     });
     _mapCenter = _center;
     _loadSheltersAndReports();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _showCurrentLocation) {
+        _loadCurrentLocation();
+      }
+    });
   }
 
   Future<void> _loadIncidents() async {
@@ -155,11 +186,10 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _loadSheltersAndReports() async {
     try {
-      final zoneStr = AuthService.currentUser?.zone;
-      final zoneId = AssignmentService.getZoneIdByDistrict(zoneStr);
-      if (zoneId != null) {
+      final assignedDistrict = AuthService.currentUser?.zone;
+      if (assignedDistrict != null && assignedDistrict.trim().isNotEmpty) {
         try {
-          final shelters = await AssignmentService.fetchNearbyShelters(zoneId);
+          final shelters = await AssignmentService.fetchNearbyShelters(district: assignedDistrict);
           if (!mounted) return;
           setState(() => _shelters = shelters);
 
@@ -172,7 +202,7 @@ class _MapScreenState extends State<MapScreen> {
             }
           }
 
-          if (firstWithCoords != null && firstWithCoords.latitude != null && firstWithCoords.longitude != null) {
+          if (!_hasUserLocation && firstWithCoords != null && firstWithCoords.latitude != null && firstWithCoords.longitude != null) {
             final newCenter = LatLng(firstWithCoords.latitude!, firstWithCoords.longitude!);
             _mapCenter = newCenter;
             _mapController.move(newCenter, _currentZoom);
@@ -195,6 +225,92 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _loadCurrentLocation() async {
+    if (!_showCurrentLocation) return;
+    if (_isLocating) return;
+
+    setState(() {
+      _isLocating = true;
+      _locationStatus = 'Finding your location...';
+    });
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        setState(() {
+          _locationStatus = 'Location services are disabled.';
+          _isLocating = false;
+        });
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied) {
+        if (!mounted) return;
+        setState(() {
+          _locationStatus = 'Location permission denied.';
+          _isLocating = false;
+        });
+        return;
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        setState(() {
+          _locationStatus = 'Location permission permanently denied.';
+          _isLocating = false;
+        });
+        return;
+      }
+
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        ).timeout(const Duration(seconds: 12));
+      } catch (_) {
+        position = await Geolocator.getLastKnownPosition();
+      }
+
+      if (position == null) {
+        if (!mounted) return;
+        setState(() {
+          _locationStatus = 'Unable to determine your current position.';
+          _isLocating = false;
+        });
+        return;
+      }
+
+      final location = LatLng(position.latitude, position.longitude);
+
+      if (!mounted) return;
+      setState(() {
+        _currentLocation = location;
+        _hasUserLocation = true;
+        _locationStatus = 'Showing your live location.';
+        _isLocating = false;
+      });
+
+      _mapCenter = location;
+      _currentZoom = 15.0;
+      _mapController.move(location, _currentZoom);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _locationStatus = _showCurrentLocation
+            ? 'Unable to get current location.'
+            : 'Current location disabled.';
+        _isLocating = false;
+      });
+      print('[Map] Error getting current location: $e');
+    }
+  }
+
   void _zoomIn() {
     _currentZoom = (_currentZoom + 1).clamp(3.0, 18.0);
     _mapController.move(_mapCenter, _currentZoom);
@@ -206,6 +322,13 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _resetZoom() {
+    if (_currentLocation != null) {
+      _mapCenter = _currentLocation!;
+      _currentZoom = 15.0;
+      _mapController.move(_currentLocation!, _currentZoom);
+      return;
+    }
+
     _currentZoom = 13.0;
     _mapController.move(_center, _currentZoom);
   }
@@ -358,6 +481,21 @@ class _MapScreenState extends State<MapScreen> {
                       );
                     }).toList(),
                   ),
+
+                if (_currentLocation != null)
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: _currentLocation!,
+                        width: 56,
+                        height: 56,
+                        child: GestureDetector(
+                          onTap: _loadCurrentLocation,
+                          child: _buildCurrentLocationMarker(),
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -397,7 +535,7 @@ class _MapScreenState extends State<MapScreen> {
                     const SizedBox(height: 16),
                     _buildMapControlButton(
                       Icons.my_location,
-                      tooltip: 'Reset location',
+                      tooltip: 'My location',
                       onTap: _resetZoom,
                     ),
                     const SizedBox(height: 16),
@@ -419,7 +557,14 @@ class _MapScreenState extends State<MapScreen> {
           Positioned(
             top: 12,
             left: 16,
-            child: _buildLegendPanel(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildLegendPanel(),
+                const SizedBox(height: 12),
+                _buildLocationPanel(),
+              ],
+            ),
           ),
 
           // ═══════════════════════════════════════
@@ -555,6 +700,103 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildLocationPanel() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          width: 160,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0B1326).withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'CURRENT POSITION',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.1,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _locationStatus ?? 'Tap my location to locate yourself.',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: AppColors.onSurface,
+                  height: 1.3,
+                ),
+              ),
+              if (_currentLocation != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '${_currentLocation!.latitude.toStringAsFixed(5)}, ${_currentLocation!.longitude.toStringAsFixed(5)}',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentLocationMarker() {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0x334D8EFF),
+            border: Border.all(color: const Color(0xFF4D8EFF), width: 2),
+          ),
+        ),
+        Container(
+          width: 16,
+          height: 16,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Color(0xFF4D8EFF),
+          ),
+        ),
+        Positioned(
+          bottom: 0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0B1326).withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0xFF4D8EFF).withValues(alpha: 0.3)),
+            ),
+            child: Text(
+              'You',
+              style: GoogleFonts.inter(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: AppColors.onSurface,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

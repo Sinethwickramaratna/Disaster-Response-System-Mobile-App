@@ -54,16 +54,13 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
   }
 
   Future<void> _refreshNearbyShelters() async {
-    final userZone = AuthService.currentUser?.zone;
-    print('🔍 DEBUG: User zone string: "$userZone"');
+    final assignedDistrict = AuthService.currentUser?.zone;
+    print('🔍 DEBUG: Assigned district string: "$assignedDistrict"');
     
-    final zoneId = AssignmentService.getZoneIdByDistrict(userZone);
-    print('🔍 DEBUG: Mapped to zoneId: $zoneId');
-    
-    if (zoneId == null) {
-      print('⚠️ DEBUG: Could not map zone "$userZone" to zoneId');
+    if (assignedDistrict == null || assignedDistrict.trim().isEmpty) {
+      print('⚠️ DEBUG: Could not determine assigned district');
       setState(() {
-        _shelterMessage = 'Assigned zone "$userZone" could not be mapped to shelter zone';
+        _shelterMessage = 'Assigned district could not be determined';
       });
       return;
     }
@@ -74,8 +71,8 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     });
 
     try {
-      print('🔄 DEBUG: Starting shelter fetch for zone=$userZone (zoneId=$zoneId)');
-      final shelters = await AssignmentService.fetchNearbyShelters(zoneId);
+      print('🔄 DEBUG: Starting shelter fetch for district=$assignedDistrict');
+      final shelters = await AssignmentService.fetchNearbyShelters(district: assignedDistrict);
       if (!mounted) return;
 
       print('✅ DEBUG: Received ${shelters.length} shelters');

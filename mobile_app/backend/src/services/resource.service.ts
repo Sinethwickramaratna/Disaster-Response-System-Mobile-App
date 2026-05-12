@@ -103,22 +103,125 @@ export async function getMyResourceRequests(userId: string) {
   }))
 }
 
-export async function getNearbyShelters(zoneId: number) {
-  const [{ data: division, error: divisionError }, { data: shelters, error: sheltersError }] = await Promise.all([
-    supabase
-      .from('Division')
-      .select('division_id, division_name, district, province, latitude, longitude')
-      .eq('division_id', zoneId)
-      .maybeSingle(),
-    supabase
-      .from('Shelter')
-      .select('shelter_id, name, latitude, longitude, max_capacity, current_occupancy, status, contact_person, contact_phone, division_id')
-      .eq('division_id', zoneId),
-  ])
+type NearbySheltersQuery = {
+  zoneId?: number
+  district?: string
+}
 
-  if (divisionError) {
-    throw divisionError
+type DivisionRow = {
+  division_id: number
+  division_name: string
+  district: string | null
+  province: string | null
+  latitude: number | string | null
+  longitude: number | string | null
+}
+
+function parsePositiveInteger(value: string | undefined) {
+  if (!value) {
+    return null
   }
+
+  const parsed = Number.parseInt(value, 10)
+  return Number.isInteger(parsed) && parsed > 0 && parsed.toString() === value ? parsed : null
+}
+
+async function getDivisionById(divisionId: number) {
+  const { data, error } = await supabase
+    .from('Division')
+    .select('division_id, division_name, district, province, latitude, longitude')
+    .eq('division_id', divisionId)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return data as DivisionRow | null
+}
+
+async function getDivisionByName(divisionName: string) {
+  const { data, error } = await supabase
+    .from('Division')
+    .select('division_id, division_name, district, province, latitude, longitude')
+    .eq('division_name', divisionName)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return data as DivisionRow | null
+}
+
+async function getDivisionsByDistrict(district: string) {
+  const { data, error } = await supabase
+    .from('Division')
+    .select('division_id, division_name, district, province, latitude, longitude')
+    .eq('district', district)
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []).filter((division) => division.division_id != null) as DivisionRow[]
+}
+
+async function getShelterDivisionScope(query: NearbySheltersQuery) {
+  const normalizedDistrict = query.district?.trim()
+  const assignedDivisionId = query.zoneId ?? parsePositiveInteger(normalizedDistrict)
+  const assignedDivision = assignedDivisionId != null ? await getDivisionById(assignedDivisionId) : null
+
+  if (assignedDivision?.district?.trim()) {
+    return {
+      divisions: await getDivisionsByDistrict(assignedDivision.district.trim()),
+      originDivision: assignedDivision,
+    }
+  }
+
+  if (normalizedDistrict) {
+    const districtDivisions = await getDivisionsByDistrict(normalizedDistrict)
+
+    if (districtDivisions.length > 0) {
+      return {
+        divisions: districtDivisions,
+        originDivision: null,
+      }
+    }
+
+    const divisionByName = await getDivisionByName(normalizedDistrict)
+
+    if (divisionByName?.district?.trim()) {
+      return {
+        divisions: await getDivisionsByDistrict(divisionByName.district.trim()),
+        originDivision: divisionByName,
+      }
+    }
+
+    return {
+      divisions: divisionByName ? [divisionByName] : [],
+      originDivision: divisionByName,
+    }
+  }
+
+  return {
+    divisions: assignedDivision ? [assignedDivision] : [],
+    originDivision: assignedDivision,
+  }
+}
+
+export async function getNearbyShelters(query: NearbySheltersQuery) {
+  const { divisions: divisionRows, originDivision } = await getShelterDivisionScope(query)
+  const divisionIds = divisionRows.map((division) => division.division_id)
+
+  if (divisionIds.length === 0) {
+    return []
+  }
+
+  const { data: shelters, error: sheltersError } = await supabase
+    .from('Shelter')
+    .select('shelter_id, name, latitude, longitude, max_capacity, current_occupancy, status, contact_person, contact_phone, division_id')
+    .in('division_id', divisionIds)
 
   if (sheltersError) {
     throw sheltersError
@@ -127,15 +230,17 @@ export async function getNearbyShelters(zoneId: number) {
   const sheltersWithDistance = (shelters ?? []).map((shelter) => {
     const shelterLatitude = shelter.latitude != null ? Number(shelter.latitude) : null
     const shelterLongitude = shelter.longitude != null ? Number(shelter.longitude) : null
+    const shelterDivision = divisionRows.find((division) => division.division_id === shelter.division_id)
+    const distanceOrigin = originDivision ?? shelterDivision
 
     const distanceKm =
-      division?.latitude != null &&
-      division?.longitude != null &&
+      distanceOrigin?.latitude != null &&
+      distanceOrigin?.longitude != null &&
       shelterLatitude != null &&
       shelterLongitude != null
         ? Number(haversineDistanceKm(
-            Number(division.latitude),
-            Number(division.longitude),
+            Number(distanceOrigin.latitude),
+            Number(distanceOrigin.longitude),
             shelterLatitude,
             shelterLongitude
           ).toFixed(1))

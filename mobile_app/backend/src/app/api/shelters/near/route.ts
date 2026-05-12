@@ -11,16 +11,21 @@ export async function GET(req: NextRequest) {
       return auth.response
     }
 
-    const zoneIdParam = new URL(req.url).searchParams.get('zoneId')
+    const searchParams = new URL(req.url).searchParams
+    const district = searchParams.get('district')?.trim() ?? ''
+    const zoneIdParam = searchParams.get('zoneId')
     const zoneId = Number.parseInt(zoneIdParam ?? '', 10)
 
-    if (!Number.isInteger(zoneId) || zoneId <= 0) {
+    if (!district && (!Number.isInteger(zoneId) || zoneId <= 0)) {
       return jsonValidationError([
-        { field: 'zoneId', message: 'zoneId must be a positive integer' },
+        { field: 'district', message: 'district or zoneId is required' },
       ])
     }
 
-    const shelters = await getNearbyShelters(zoneId)
+    const shelters = await getNearbyShelters({
+      district: district || undefined,
+      zoneId: Number.isInteger(zoneId) && zoneId > 0 ? zoneId : undefined,
+    })
 
     return NextResponse.json(shelters)
   } catch (error) {

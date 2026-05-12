@@ -94,15 +94,22 @@ class AssignmentService {
     return _buildResourcesResponse(resources);
   }
 
-  static Future<List<ShelterData>> fetchNearbyShelters(int zoneId) async {
-    print('🔍 DEBUG: Fetching nearby shelters for zoneId=$zoneId');
+  static Future<List<ShelterData>> fetchNearbyShelters({int? zoneId, String? district}) async {
+    print('🔍 DEBUG: Fetching nearby shelters for zoneId=$zoneId district=$district');
     print('🔍 DEBUG: API Base URL: ${Env.apiBaseUrl}');
-    print('🔍 DEBUG: Full endpoint: ${Env.apiBaseUrl}/api/shelters/near?zoneId=$zoneId');
+    print('🔍 DEBUG: Full endpoint: ${Env.apiBaseUrl}/api/shelters/near');
     
     try {
+      final queryParameters = <String, String>{};
+      if (district != null && district.trim().isNotEmpty) {
+        queryParameters['district'] = district.trim();
+      } else if (zoneId != null) {
+        queryParameters['zoneId'] = zoneId.toString();
+      }
+
       final decoded = await _cachedJson(
         '/api/shelters/near',
-        queryParameters: {'zoneId': zoneId.toString()},
+        queryParameters: queryParameters,
       );
       print('✅ DEBUG: Shelters response received: $decoded');
       
