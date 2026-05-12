@@ -155,7 +155,13 @@ export function getIO(existingServer?: HttpServer) {
             const userId = eventType === 'DELETE' ? payload.old.user_id : payload.new.user_id;
             const eventName = eventType === 'INSERT' ? 'incident:assigned' : (eventType === 'DELETE' ? 'incident:removed' : 'incident:updated');
             
-            console.log(`[socket.io] Broadcasting ${eventName} to user:${userId}`);
+            console.log(`[socket.io] PersonnelAssignment ${eventType} detected. Targeting user:${userId}`);
+            
+            if (!userId) {
+              console.warn(`[socket.io] Missing userId for ${eventType} on PersonnelAssignment. Event will not be broadcasted.`);
+              return;
+            }
+
             io.to(`user:${userId}`).emit(eventName, {
               assignmentId: eventType === 'DELETE' ? payload.old.assignment_id : payload.new.assignment_id,
               incidentId: eventType === 'DELETE' ? payload.old.incident_id : payload.new.incident_id,
@@ -164,6 +170,7 @@ export function getIO(existingServer?: HttpServer) {
               updatedAt: eventType === 'DELETE' ? new Date().toISOString() : (payload.new.assigned_at || new Date().toISOString()),
               event: eventName
             });
+            console.log(`[socket.io] Successfully broadcasted ${eventName} to user:${userId}`);
           } else if (table.toLowerCase() === 'confirmedincident' && eventType === 'UPDATE') {
             console.log(`[socket.io] Broadcasting incident:updated for ${payload.new.id}`)
             io.emit('incident:updated', {

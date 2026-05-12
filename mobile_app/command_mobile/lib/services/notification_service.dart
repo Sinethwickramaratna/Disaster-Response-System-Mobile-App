@@ -83,11 +83,15 @@ class NotificationService extends ChangeNotifier {
           message = 'Request ${data['requestId']} is now $status';
         }
       } else if (data.containsKey('incidentId')) {
+        print('📌 NotificationService: Processing incident-related event: $event for ${data['incidentId']}');
         final status = data['status']?.toString().toUpperCase() ?? '';
         final updatedAt = data['updatedAt']?.toString() ?? data['updated_at']?.toString() ?? '';
         dedupeId = 'inc:${data['incidentId']}:$event:$status:$updatedAt';
         
-        if (dedupeId.isNotEmpty && _processedIds.contains(dedupeId)) return;
+        if (dedupeId.isNotEmpty && _processedIds.contains(dedupeId)) {
+          print('♻️ NotificationService: Deduplicated event: $dedupeId');
+          return;
+        }
         _processedIds.add(dedupeId);
 
         title = 'Incident Update';

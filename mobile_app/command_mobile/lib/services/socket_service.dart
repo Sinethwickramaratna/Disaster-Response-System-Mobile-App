@@ -94,19 +94,28 @@ class SocketService {
 
   void _bindEvents(io.Socket socket) {
     socket.onConnect((_) {
-      final district = AuthService.currentUser?.zone ?? '';
+      final user = AuthService.currentUser;
+      final district = user?.zone ?? '';
       debugPrint('[SocketService] connected to ${Env.apiSocketUrl}');
       if (district.trim().isNotEmpty) {
         joinDistrict(district);
+      }
+      if (user != null && user.userId != null) {
+        socket.emit('join', user.userId);
+        debugPrint('[SocketService] joined personal room: user:${user.userId}');
       }
       debugPrint('[SocketService] frontend socket.io connected: ${socket.connected}');
     });
 
     socket.onReconnect((_) {
-      final district = AuthService.currentUser?.zone ?? '';
+      final user = AuthService.currentUser;
+      final district = user?.zone ?? '';
       debugPrint('[SocketService] reconnected to ${Env.apiSocketUrl}');
       if (district.trim().isNotEmpty) {
         joinDistrict(district);
+      }
+      if (user != null && user.userId != null) {
+        socket.emit('join', user.userId);
       }
     });
 
@@ -121,6 +130,7 @@ class SocketService {
 
     for (final eventName in const [
       'incident:assigned',
+      'incident:removed',
       'incident:updated',
       'assignment:update',
       'resource:assigned',
