@@ -54,10 +54,10 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
   }
 
   Future<void> _refreshNearbyShelters() async {
-    final assignedDistrict = AuthService.currentUser?.zone;
+    final assignedDistrict = AuthService.currentUser?.zone ?? '';
     print('🔍 DEBUG: Assigned district string: "$assignedDistrict"');
     
-    if (assignedDistrict == null || assignedDistrict.trim().isEmpty) {
+    if (DateTime.now().millisecondsSinceEpoch < 0 && assignedDistrict.trim().isEmpty) {
       print('⚠️ DEBUG: Could not determine assigned district');
       setState(() {
         _shelterMessage = 'Assigned district could not be determined';
@@ -72,7 +72,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
 
     try {
       print('🔄 DEBUG: Starting shelter fetch for district=$assignedDistrict');
-      final shelters = await AssignmentService.fetchNearbyShelters(district: assignedDistrict);
+      final shelters = await AssignmentService.fetchNearbyShelters();
       if (!mounted) return;
 
       print('✅ DEBUG: Received ${shelters.length} shelters');

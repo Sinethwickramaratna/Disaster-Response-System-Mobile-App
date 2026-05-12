@@ -187,31 +187,28 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _loadSheltersAndReports() async {
     try {
-      final assignedDistrict = AuthService.currentUser?.zone;
-      if (assignedDistrict != null && assignedDistrict.trim().isNotEmpty) {
-        try {
-          final shelters = await AssignmentService.fetchNearbyShelters(district: assignedDistrict);
-          if (!mounted) return;
-          setState(() => _shelters = shelters);
+      try {
+        final shelters = await AssignmentService.fetchNearbyShelters();
+        if (!mounted) return;
+        setState(() => _shelters = shelters);
 
-          // If we have at least one shelter with coordinates, center map there
-          ShelterData? firstWithCoords;
-          for (final shelter in shelters) {
-            if (shelter.latitude != null && shelter.longitude != null) {
-              firstWithCoords = shelter;
-              break;
-            }
+        // If we have at least one shelter with coordinates, center map there
+        ShelterData? firstWithCoords;
+        for (final shelter in shelters) {
+          if (shelter.latitude != null && shelter.longitude != null) {
+            firstWithCoords = shelter;
+            break;
           }
-
-          if (!_hasCenteredOnShelters && firstWithCoords != null && firstWithCoords.latitude != null && firstWithCoords.longitude != null) {
-            final newCenter = LatLng(firstWithCoords.latitude!, firstWithCoords.longitude!);
-            _mapCenter = newCenter;
-            _hasCenteredOnShelters = true;
-            _mapController.move(newCenter, _currentZoom);
-          }
-        } catch (e) {
-          print('[Map] Warning: failed to fetch shelters: $e');
         }
+
+        if (!_hasCenteredOnShelters && firstWithCoords != null && firstWithCoords.latitude != null && firstWithCoords.longitude != null) {
+          final newCenter = LatLng(firstWithCoords.latitude!, firstWithCoords.longitude!);
+          _mapCenter = newCenter;
+          _hasCenteredOnShelters = true;
+          _mapController.move(newCenter, _currentZoom);
+        }
+      } catch (e) {
+        print('[Map] Warning: failed to fetch shelters: $e');
       }
     } catch (e) {
       print('[Map] Error mapping zone to shelters: $e');

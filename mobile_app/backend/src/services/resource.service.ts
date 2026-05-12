@@ -104,6 +104,7 @@ export async function getMyResourceRequests(userId: string) {
 }
 
 type NearbySheltersQuery = {
+  userId: string
   zoneId?: number
   district?: string
 }
@@ -148,6 +149,21 @@ async function getDivisionById(divisionId: number) {
   }
 
   return data as DivisionRow | null
+}
+
+async function getUserAssignedDistrict(userId: string) {
+  const { data, error } = await supabase
+    .from('User')
+    .select('assignedDistrict')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  const assignedDistrict = data?.assignedDistrict
+  return typeof assignedDistrict === 'string' ? assignedDistrict.trim() : ''
 }
 
 async function getDivisionByName(divisionName: string) {
@@ -213,7 +229,8 @@ async function getDivisionsByDistrict(district: string) {
 }
 
 async function getShelterDivisionScope(query: NearbySheltersQuery) {
-  const normalizedDistrict = query.district?.trim()
+  const assignedDistrict = await getUserAssignedDistrict(query.userId)
+  const normalizedDistrict = assignedDistrict || query.district?.trim()
   const assignedDivisionId = query.zoneId ?? parsePositiveInteger(normalizedDistrict)
   const assignedDivision = assignedDivisionId != null ? await getDivisionById(assignedDivisionId) : null
 
