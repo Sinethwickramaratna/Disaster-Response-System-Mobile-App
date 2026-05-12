@@ -8,12 +8,6 @@ import '../services/assignment_service.dart';
 import '../models/assignment.dart';
 
 /// Field Reports (Incoming Reports) screen.
-///
-/// Faithfully reproduces the HTML/Tailwind mobile design:
-///  • TopAppBar with menu / COMMAND title / notifications
-///  • Sticky header with "Field Reports" title and tactical filter tabs
-///  • Scrollable list of report cards (SOS, Public, J1 Internal)
-///  • BottomNav bar (Reports tab active)
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
 
@@ -25,7 +19,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
   int _selectedFilter = 0; // 0 = All
   int _currentNavIndex = 1; // Reports tab
 
-  // Tactical filter labels (kept minimal for officer workflow)
   final List<String> _filterLabels = ['ALL', 'ASSIGNED', 'PRIORITY'];
 
   List<AssignmentIncident> _incidents = [];
@@ -54,8 +47,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (_selectedFilter == 2) {
       return _incidents
           .where((assignment) =>
-              assignment.status.toUpperCase() == 'PENDING' ||
-              assignment.status.toUpperCase() == 'UNDER_REVIEW')
+              assignment.status.toUpperCase() == 'ACTIVE' ||
+              assignment.status.toUpperCase() == 'INSPECTING')
           .toList();
     }
     return _incidents;
@@ -66,7 +59,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       drawer: const AppDrawer(currentRoute: '/reports'),
-      // ─── Top App Bar ───
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Colors.black.withValues(alpha: 0.8),
@@ -107,97 +99,81 @@ class _ReportsScreenState extends State<ReportsScreen> {
           _navigateTo(context, index);
         },
       ),
-      body: Stack(
+      body: Column(
         children: [
-          // ─── Scrollable content ───
-          Column(
-            children: [
-              // ─── Sticky header: title + filter tabs ───
-              Container(
-                color: AppColors.background,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Field Reports',
-                      style: GoogleFonts.inter(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // ── Tactical filter tabs ──
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceContainer,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppColors.outlineVariant),
-                      ),
-                      child: Row(
-                        children: List.generate(_filterLabels.length, (i) {
-                          final bool isActive = _selectedFilter == i;
-                          return Expanded(
-                            child: GestureDetector(
-                              onTap: () =>
-                                  setState(() => _selectedFilter = i),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: isActive
-                                      ? AppColors.primary.withValues(alpha: 0.2)
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(2),
-                                  border: isActive
-                                      ? Border.all(
-                                          color: AppColors.primary
-                                              .withValues(alpha: 0.3))
-                                      : null,
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  _filterLabels[i],
-                                  style: GoogleFonts.spaceGrotesk(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.2,
-                                    color: isActive
-                                        ? AppColors.primary
-                                        : AppColors.onSurfaceVariant,
-                                  ),
-                                ),
+          Container(
+            color: AppColors.background,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Field Reports',
+                  style: GoogleFonts.inter(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainer,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppColors.outlineVariant),
+                  ),
+                  child: Row(
+                    children: List.generate(_filterLabels.length, (i) {
+                      final bool isActive = _selectedFilter == i;
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _selectedFilter = i),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? AppColors.primary.withValues(alpha: 0.2)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(2),
+                              border: isActive
+                                  ? Border.all(color: AppColors.primary.withValues(alpha: 0.3))
+                                  : null,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              _filterLabels[i],
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.2,
+                                color: isActive ? AppColors.primary : AppColors.onSurfaceVariant,
                               ),
                             ),
-                          );
-                        }),
-                      ),
-                    ),
-                  ],
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
                 ),
-              ),
-
-              // ─── Report cards list ───
-              Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                        itemCount: _filteredIncidents.length,
-                        itemBuilder: (context, index) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: _buildReportCard(_filteredIncidents[index]),
-                          );
-                        },
-                      ),
-              ),
-            ],
+              ],
+            ),
           ),
-
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                    itemCount: _filteredIncidents.length,
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _buildReportCard(_filteredIncidents[index]),
+                      );
+                    },
+                  ),
+          ),
         ],
       ),
     );
@@ -217,15 +193,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
   }
 
-  // ═══════════════════════════════════════
-  //  REPORT CARD
-  // ═══════════════════════════════════════
   Widget _buildReportCard(AssignmentIncident assignment) {
     final incident = assignment.incident;
-    final status = assignment.status.toUpperCase();
+    final status = assignment.status;
     final Color accent = switch (status) {
       'ACTIVE' => Colors.greenAccent,
-      'REJECTED' => AppColors.error,
+      'FALSEREPORT' => AppColors.error,
       _ => AppColors.primary,
     };
 
@@ -248,62 +221,68 @@ class _ReportsScreenState extends State<ReportsScreen> {
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          incident?.title ?? 'ASSIGNED INCIDENT',
-                          style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                incident?.title ?? 'ASSIGNED INCIDENT',
+                                style: GoogleFonts.inter(
+                                    fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '${assignment.shortIncidentId} • ${assignment.assignedAt.toLocal().toString().split(' ')[0]}',
+                                style: GoogleFonts.spaceGrotesk(fontSize: 11, color: AppColors.outline),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${assignment.incidentId ?? "N/A"} • ${assignment.assignedAt.toLocal().toString().split(' ')[0]}',
-                          style: GoogleFonts.spaceGrotesk(fontSize: 11, color: AppColors.outline),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: AppColors.outlineVariant),
+                          ),
+                          child: Text(
+                            incident?.division?.district ?? incident?.division?.divisionName ?? 'TACTICAL',
+                            style: GoogleFonts.spaceGrotesk(fontSize: 11, color: AppColors.onSurfaceVariant),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppColors.outlineVariant),
-                      ),
-                      child: Text(
-                        incident?.division?.district ?? incident?.division?.divisionName ?? 'TACTICAL',
-                        style: GoogleFonts.spaceGrotesk(fontSize: 11, color: AppColors.onSurfaceVariant),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  incident?.description ?? 'No incident description provided.',
-                  style: GoogleFonts.inter(fontSize: 14, color: AppColors.onSurface),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
+                    const SizedBox(height: 12),
                     Text(
-                      'Status: $status',
-                      style: GoogleFonts.spaceGrotesk(fontSize: 12, color: AppColors.outline),
+                      incident?.description ?? 'No incident description provided.',
+                      style: GoogleFonts.inter(fontSize: 14, color: AppColors.onSurface),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    IconButton(
-                      tooltip: 'View incident',
-                      onPressed: () => _openIncidentDetails(assignment),
-                      icon: const Icon(Icons.open_in_new, color: Color(0xFF4D8EFF)),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Status: ${status.toUpperCase()}',
+                          style: GoogleFonts.spaceGrotesk(fontSize: 12, color: AppColors.outline),
+                        ),
+                        const Icon(Icons.open_in_new, color: Color(0xFF4D8EFF), size: 20),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+              ),
             ],
           ),
         ),
@@ -324,180 +303,386 @@ class _ReportsScreenState extends State<ReportsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.8,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          builder: (_, scrollController) => Container(
-            decoration: const BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              border: Border(top: BorderSide(color: AppColors.outlineVariant, width: 1)),
-            ),
-            child: Column(
-              children: [
-                // ─── Header Handle ───
-                Center(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 12),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.outlineVariant,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+      builder: (_) => IncidentDetailsSheet(
+        assignment: assignment,
+        onUpdate: _loadReports,
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  INCIDENT DETAILS SHEET
+// ══════════════════════════════════════════════════════════════════════════════
+
+class IncidentDetailsSheet extends StatefulWidget {
+  final AssignmentIncident assignment;
+  final VoidCallback onUpdate;
+
+  const IncidentDetailsSheet({
+    super.key,
+    required this.assignment,
+    required this.onUpdate,
+  });
+
+  @override
+  State<IncidentDetailsSheet> createState() => _IncidentDetailsSheetState();
+}
+
+class _IncidentDetailsSheetState extends State<IncidentDetailsSheet> {
+  bool _isEditing = false;
+  bool _isSaving = false;
+
+  late TextEditingController _descriptionController;
+  late TextEditingController _affectedPeopleController;
+  late TacticalIncidentStatus _selectedStatus;
+  late TacticalIncidentSeverity _selectedSeverity;
+
+  @override
+  void initState() {
+    super.initState();
+    final details = widget.assignment.incident!;
+    _descriptionController = TextEditingController(text: details.description);
+    _affectedPeopleController =
+        TextEditingController(text: (details.affectedPopulation ?? 0).toString());
+    _selectedStatus = details.status;
+    _selectedSeverity = details.severity;
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _affectedPeopleController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSave() async {
+    setState(() => _isSaving = true);
+    try {
+      final success = await AssignmentService.updateIncident(
+        incidentId: widget.assignment.incidentId!,
+        description: _descriptionController.text,
+        affectedPeople: int.tryParse(_affectedPeopleController.text),
+        status: _selectedStatus.dbValue,
+        severity: _selectedSeverity.name,
+      );
+
+      if (success) {
+        widget.onUpdate();
+        if (mounted) {
+          setState(() => _isEditing = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Tactical data updated successfully')),
+          );
+        }
+      } else {
+        throw Exception('Update failed');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating incident: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final details = widget.assignment.incident!;
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (_, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(top: BorderSide(color: AppColors.outlineVariant, width: 1)),
+        ),
+        child: Column(
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                Expanded(
-                  child: ListView(
-                    controller: scrollController,
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ─── Top Identity Section ───
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'INCIDENT #${assignment.incidentId}',
-                                  style: GoogleFonts.spaceGrotesk(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.5,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  details.title,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.onSurface,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                              ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'INCIDENT #${widget.assignment.shortIncidentId}',
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.5,
+                                color: AppColors.primary,
+                              ),
                             ),
-                          ),
-                          _buildStatusBadge(details.status),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      // ─── Primary Action Buttons ───
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTacticalButton(
-                                label: 'ASSIGNMENT',
-                              icon: Icons.check_circle_outline,
-                              onTap: () {
-                                Navigator.pop(context);
-                              },
-                              isPrimary: true,
+                            const SizedBox(height: 4),
+                            Text(
+                              details.title,
+                              style: GoogleFonts.inter(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.onSurface,
+                                letterSpacing: -0.5,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTacticalButton(
-                              label: 'LOCATE ON MAP',
-                              icon: Icons.map_outlined,
-                              onTap: () {
-                                Navigator.pop(context);
-                                Navigator.pushReplacementNamed(
-                                  context,
-                                  '/map',
-                                  arguments: {
-                                    'focusLat': details.latitude,
-                                    'focusLon': details.longitude,
-                                    'focusReportId': assignment.incidentId,
-                                  },
-                                );
-                              },
-                              isPrimary: false,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
-
-                      // ─── Section: Location Details ───
-                      _buildSectionTitle('LOCATION & AREA'),
-                      _buildInfoCard(
-                        icon: Icons.location_on,
-                        title: details.division?.district ?? details.division?.divisionName ?? 'Assigned area',
-                        subtitle: 'District Jurisdiction',
-                        trailing: Text(
-                          '${details.latitude?.toStringAsFixed(4) ?? '-'}, ${details.longitude?.toStringAsFixed(4) ?? '-'}',
-                          style: GoogleFonts.spaceGrotesk(fontSize: 11, color: AppColors.outline),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 24),
-
-                      // ─── Section: Assignment Information ───
-                      _buildSectionTitle('ASSIGNMENT INFO'),
-                      _buildInfoCard(
-                        icon: Icons.badge_outlined,
-                        title: assignment.role,
-                        subtitle: 'Assignment status: ${assignment.status}',
-                        trailing: Text(
-                          assignment.assignedAt.toLocal().toString().split(' ')[0],
-                          style: GoogleFonts.inter(fontSize: 11, color: AppColors.outline),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // ─── Section: Incident Content ───
-                      _buildSectionTitle('SITUATION DESCRIPTION'),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.outlineVariant),
-                        ),
-                        child: Text(
-                          details.description ?? 'No tactical description provided for this incident.',
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            height: 1.6,
-                            color: AppColors.onSurface.withValues(alpha: 0.9),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // ─── Section: Metadata ───
-                      _buildSectionTitle('SYSTEM LOGS'),
-                      _buildLogItem('Created at', details.createdAt.toLocal().toString()),
-                      _buildLogItem('Incident ID', assignment.incidentId ?? 'N/A'),
-                      _buildLogItem('Public visibility', details.publicVisibility ? 'Yes' : 'No'),
-                      _buildLogItem('Severity', details.severity),
-                      if (details.closedAt != null) _buildLogItem('Closed at', details.closedAt!.toLocal().toString()),
-                      
-                      const SizedBox(height: 24),
+                      _buildStatusBadge(_isEditing ? _selectedStatus : details.status),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 24),
+                  if (_isEditing) _buildEditForm() else _buildViewContent(details),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildStatusBadge(String status) {
-    final bool isVerified = status.toUpperCase() == 'VERIFIED';
-    final bool isRejected = status.toUpperCase() == 'REJECTED';
-    
+  Widget _buildViewContent(IncidentData details) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildTacticalButton(
+                label: 'UPDATE SITUATION',
+                icon: Icons.edit_note,
+                onTap: () => setState(() => _isEditing = true),
+                isPrimary: true,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTacticalButton(
+                label: 'LOCATE ON MAP',
+                icon: Icons.map_outlined,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushReplacementNamed(
+                    context,
+                    '/map',
+                    arguments: {
+                      'focusLat': details.latitude,
+                      'focusLon': details.longitude,
+                      'focusReportId': widget.assignment.incidentId,
+                    },
+                  );
+                },
+                isPrimary: false,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
+        _buildSectionTitle('LOCATION & AREA'),
+        _buildInfoCard(
+          icon: Icons.location_on,
+          title: details.division?.district ?? details.division?.divisionName ?? 'Assigned area',
+          subtitle: 'District Jurisdiction',
+          trailing: Text(
+            '${details.latitude?.toStringAsFixed(4) ?? '-'}, ${details.longitude?.toStringAsFixed(4) ?? '-'}',
+            style: GoogleFonts.spaceGrotesk(fontSize: 11, color: AppColors.outline),
+          ),
+        ),
+        const SizedBox(height: 24),
+        _buildSectionTitle('SITUATION DESCRIPTION'),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.outlineVariant),
+          ),
+          child: Text(
+            details.description ?? 'No tactical description provided for this incident.',
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              height: 1.6,
+              color: AppColors.onSurface.withValues(alpha: 0.9),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        _buildSectionTitle('FIELD DATA'),
+        _buildInfoCard(
+          icon: Icons.people_outline,
+          title: '${details.affectedPopulation ?? 0}',
+          subtitle: 'Estimated affected people',
+        ),
+        const SizedBox(height: 24),
+        _buildSectionTitle('SYSTEM LOGS'),
+        _buildLogItem('Created at', details.createdAt.toLocal().toString()),
+        _buildLogItem('Incident ID', widget.assignment.shortIncidentId),
+        _buildLogItem('Severity', details.severity.name),
+      ],
+    );
+  }
+
+  Widget _buildEditForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('SITUATION UPDATE'),
+        TextField(
+          controller: _descriptionController,
+          maxLines: 4,
+          style: GoogleFonts.inter(color: AppColors.onSurface),
+          decoration: InputDecoration(
+            hintText: 'Enter current situation description...',
+            hintStyle: GoogleFonts.inter(color: AppColors.outline),
+            filled: true,
+            fillColor: AppColors.surfaceContainerLow,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.outlineVariant),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        _buildSectionTitle('AFFECTED PEOPLE'),
+        TextField(
+          controller: _affectedPeopleController,
+          keyboardType: TextInputType.number,
+          style: GoogleFonts.inter(color: AppColors.onSurface),
+          decoration: InputDecoration(
+            hintText: 'Count...',
+            prefixIcon: const Icon(Icons.people, size: 20),
+            filled: true,
+            fillColor: AppColors.surfaceContainerLow,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.outlineVariant),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionTitle('STATUS'),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.outlineVariant),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<TacticalIncidentStatus>(
+                        value: _selectedStatus,
+                        isExpanded: true,
+                        dropdownColor: AppColors.surface,
+                        items: TacticalIncidentStatus.values
+                            .map((s) => DropdownMenuItem(
+                                  value: s,
+                                  child: Text(s.label,
+                                      style: GoogleFonts.inter(color: AppColors.onSurface, fontSize: 13)),
+                                ))
+                            .toList(),
+                        onChanged: (v) => setState(() => _selectedStatus = v ?? _selectedStatus),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionTitle('SEVERITY'),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.outlineVariant),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<TacticalIncidentSeverity>(
+                        value: _selectedSeverity,
+                        isExpanded: true,
+                        dropdownColor: AppColors.surface,
+                        items: TacticalIncidentSeverity.values
+                            .map((s) => DropdownMenuItem(
+                                  value: s,
+                                  child: Text(s.name,
+                                      style: GoogleFonts.inter(color: AppColors.onSurface, fontSize: 13)),
+                                ))
+                            .toList(),
+                        onChanged: (v) => setState(() => _selectedSeverity = v ?? _selectedSeverity),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTacticalButton(
+                label: 'CANCEL',
+                icon: Icons.close,
+                onTap: () => setState(() => _isEditing = false),
+                isPrimary: false,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTacticalButton(
+                label: _isSaving ? 'SAVING...' : 'SAVE UPDATES',
+                icon: _isSaving ? Icons.sync : Icons.save,
+                onTap: _isSaving ? () {} : _handleSave,
+                isPrimary: true,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatusBadge(dynamic status) {
+    final statusStr = status is TacticalIncidentStatus ? status.name : status.toString();
+    final bool isVerified = statusStr == 'VERIFIED' || statusStr == 'ACTIVE';
+    final bool isRejected = statusStr == 'REJECTED' || statusStr == 'FALSEREPORT';
+
     final Color color = isVerified ? Colors.greenAccent : (isRejected ? AppColors.error : AppColors.tertiary);
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -506,7 +691,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: minAxisSize,
         children: [
           Container(
             width: 6,
@@ -515,7 +700,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
           const SizedBox(width: 8),
           Text(
-            status.toUpperCase(),
+            statusStr.toUpperCase().replaceAll('_', ' '),
             style: GoogleFonts.spaceGrotesk(
               fontSize: 10,
               fontWeight: FontWeight.w700,
@@ -527,6 +712,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ),
     );
   }
+
+  MainAxisSize get minAxisSize => MainAxisSize.min;
 
   Widget _buildSectionTitle(String title) {
     return Padding(
@@ -596,7 +783,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
           Text(
             value,
-            style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.onSurfaceVariant),
+            style: GoogleFonts.spaceGrotesk(
+                fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.onSurfaceVariant),
           ),
         ],
       ),
@@ -646,5 +834,3 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 }
-
-// End of reports screen

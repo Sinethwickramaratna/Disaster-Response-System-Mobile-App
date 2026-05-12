@@ -167,3 +167,101 @@ export async function getAssignedIncidentList(userId: string) {
       longitude: unwrapRelation(row.ConfirmedIncident)!.longitude,
     }))
 }
+
+export async function updateIncident(
+  userId: string,
+  incidentId: string,
+  updates: {
+    description?: string
+    affectedPeople?: number
+    status?: string
+    severity?: string
+  }
+) {
+  console.log('[incident.service] updateIncident:', { userId, incidentId, updates })
+
+  // 1. Verify authorization
+  const { data: assignment, error: assignmentError } = await supabase
+    .from('PersonnelAssignment')
+    .select('assignment_id, incident_id')
+    .eq('user_id', userId)
+    .eq('incident_id', incidentId)
+    .maybeSingle()
+
+  if (assignmentError) {
+    console.error('[incident.service] Assignment check error:', assignmentError)
+    throw assignmentError
+  }
+
+  if (!assignment) {
+    console.warn('[incident.service] Unauthorized update attempt or invalid ID:', { userId, incidentId })
+    throw new Error('Unauthorized: User is not assigned to this incident')
+  }
+
+  // 2. Build payload with fallbacks for naming conventions
+  const payload: any = {}
+
+  if (updates.description !== undefined) payload.description = updates.description
+  
+  if (updates.status !== undefined) {
+    payload.status = updates.status.trim()
+  }
+  
+  if (updates.severity !== undefined) {
+    payload.severity = updates.severity.trim()
+  }
+
+  // Handle affected people with a few possible naming conventions
+  if (updates.affectedPeople !== undefined) {
+    payload.affectedPeople = updates.affectedPeople
+    // If the schema uses snake_case, we might need affected_population or affected_people
+    // But since we can only send one and select().single() fails if columns don't exist,
+    // we'll stick to what we saw in the context SQL unless it fails.
+  }
+
+  // updatedAt / updated_at
+  const now = new Date().toISOString()
+  payload.updatedAt = now
+
+  console.log('[incident.service] Updating ConfirmedIncident with payload:', payload)
+
+  // 3. Execute update
+  const { data, error } = await supabase
+    .from('ConfirmedIncident')
+    .update(payload)
+    .eq('id', incidentId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('[incident.service] Update execution failed:', error)
+    
+    // Fallback: If it was a column name error, try snake_case for common fields
+    if (error.code === 'PGRST204' || error.message?.includes('column')) {
+      console.log('[incident.service] Attempting snake_case fallback...')
+      const fallbackPayload: any = { updated_at: now }
+      if (updates.description !== undefined) fallbackPayload.description = updates.description
+      if (updates.status !== undefined) fallbackPayload.status = updates.status
+      if (updates.severity !== undefined) fallbackPayload.severity = updates.severity
+      if (updates.affectedPeople !== undefined) fallbackPayload.affected_population = updates.affectedPeople
+      
+      const { data: retryData, error: retryError } = await supabase
+        .from('ConfirmedIncident')
+        .update(fallbackPayload)
+        .eq('id', incidentId)
+        .select()
+        .single()
+        
+      if (retryError) {
+        console.error('[incident.service] Retry failed:', retryError)
+        throw retryError
+      }
+      return retryData
+    }
+    
+    throw error
+  }
+
+  console.log('[incident.service] Update successful:', data)
+  return data
+}

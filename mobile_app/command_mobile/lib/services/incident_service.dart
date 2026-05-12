@@ -84,7 +84,7 @@ class IncidentService {
   static Incident _incidentFromAssignment(AssignmentIncident assignment) {
     final incident = assignment.incident;
     final resolvedZone = incident?.division?.district ?? incident?.division?.divisionName ?? assignment.role;
-    final resolvedPriority = _priorityFromSeverity(incident?.severity ?? assignment.status);
+    final resolvedPriority = _priorityFromSeverity(incident?.severity?.name ?? assignment.status);
 
     return Incident(
       id: assignment.assignmentId.isNotEmpty
@@ -107,7 +107,7 @@ class IncidentService {
     final incident = assignment.incident;
     final parts = <String>[
       'Title: ${incident?.title ?? 'Assigned Incident'}',
-      if (incident?.severity != null && incident!.severity.isNotEmpty) 'Severity: ${incident.severity}',
+      if (incident?.severity != null) 'Severity: ${incident!.severity.name}',
       if (incident?.division?.district != null) 'District: ${incident!.division!.district}',
       if (incident?.division?.province != null) 'Province: ${incident!.division!.province}',
       'Assignment status: ${assignment.status}',

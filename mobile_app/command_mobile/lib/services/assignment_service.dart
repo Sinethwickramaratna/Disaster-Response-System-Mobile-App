@@ -177,6 +177,27 @@ class AssignmentService {
     return response.statusCode >= 200 && response.statusCode < 300;
   }
 
+  static Future<bool> updateIncident({
+    required String incidentId,
+    String? description,
+    int? affectedPeople,
+    String? status,
+    String? severity,
+  }) async {
+    final response = await _authorizedRequest(
+      'PATCH',
+      '/api/incidents/$incidentId',
+      body: {
+        if (description != null) 'description': description,
+        if (affectedPeople != null) 'affectedPeople': affectedPeople,
+        if (status != null) 'status': status,
+        if (severity != null) 'severity': severity,
+      },
+    );
+
+    return response.statusCode >= 200 && response.statusCode < 300;
+  }
+
   static Future<dynamic> _authorizedJson(
     String path, {
     Map<String, String>? queryParameters,
@@ -285,6 +306,9 @@ class AssignmentService {
     try {
       final response = switch (method) {
         'POST' => await http.post(uri, headers: headers, body: requestBody).timeout(_timeout),
+        'PATCH' => await http.patch(uri, headers: headers, body: requestBody).timeout(_timeout),
+        'PUT' => await http.put(uri, headers: headers, body: requestBody).timeout(_timeout),
+        'DELETE' => await http.delete(uri, headers: headers).timeout(_timeout),
         _ => await http.get(uri, headers: headers).timeout(_timeout),
       };
       print('✅ DEBUG: HTTP $method completed with status ${response.statusCode}');

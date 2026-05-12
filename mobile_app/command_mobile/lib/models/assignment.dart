@@ -40,6 +40,53 @@ bool _asBool(dynamic value, [bool fallback = false]) {
   return fallback;
 }
 
+enum TacticalIncidentStatus {
+  ACTIVE,
+  FALSEREPORT,
+  ATTHEINCIDENT,
+  EN_ROUTE,
+  INSPECTING;
+
+  static TacticalIncidentStatus fromString(String value) {
+    final clean = value.toUpperCase().replaceAll('-', '_');
+    return TacticalIncidentStatus.values.firstWhere(
+      (e) => e.name == clean,
+      orElse: () => TacticalIncidentStatus.ACTIVE,
+    );
+  }
+
+  String get label => switch (this) {
+    ACTIVE => 'ACTIVE',
+    FALSEREPORT => 'FALSE REPORT',
+    ATTHEINCIDENT => 'AT THE INCIDENT',
+    EN_ROUTE => 'EN-ROUTE',
+    INSPECTING => 'INSPECTING',
+  };
+
+  String get dbValue => switch (this) {
+    ACTIVE => 'ACTIVE',
+    FALSEREPORT => 'FALSEREPORT',
+    ATTHEINCIDENT => 'ATTHEINCIDENT',
+    EN_ROUTE => 'EN-ROUTE',
+    INSPECTING => 'INSPECTING',
+  };
+}
+
+enum TacticalIncidentSeverity {
+  LOW,
+  MEDIUM,
+  MODERATE,
+  HIGH,
+  CRITICAL;
+
+  static TacticalIncidentSeverity fromString(String value) {
+    return TacticalIncidentSeverity.values.firstWhere(
+      (e) => e.name == value.toUpperCase(),
+      orElse: () => TacticalIncidentSeverity.LOW,
+    );
+  }
+}
+
 DateTime _asDateTime(dynamic value, [DateTime? fallback]) {
   if (value == null) return fallback ?? DateTime.now();
   if (value is DateTime) return value;
@@ -139,6 +186,10 @@ class AssignmentIncident {
     this.incident,
   });
 
+  String get shortIncidentId => (incidentId != null && incidentId!.length > 8)
+      ? '${incidentId!.substring(0, 8)}...'
+      : (incidentId ?? 'N/A');
+
   factory AssignmentIncident.fromJson(Map<String, dynamic> json) {
     final incidentJson = _asMap(json['incident']) ?? json;
     return AssignmentIncident(
@@ -155,9 +206,9 @@ class AssignmentIncident {
 class IncidentData {
   final String? incidentId;
   final String title;
-  final String severity;
+  final TacticalIncidentSeverity severity;
   final int? affectedPopulation;
-  final String status;
+  final TacticalIncidentStatus status;
   final double? latitude;
   final double? longitude;
   final DateTime createdAt;
@@ -181,14 +232,18 @@ class IncidentData {
     this.publicVisibility = true,
   });
 
+  String get shortId => (incidentId != null && incidentId!.length > 8)
+      ? '${incidentId!.substring(0, 8)}...'
+      : (incidentId ?? 'N/A');
+
   factory IncidentData.fromJson(Map<String, dynamic> json) {
     final divisionJson = _asMap(json['division']) ?? _asMap(json['Division']);
     return IncidentData(
       incidentId: _asString(_readValue(json, ['incidentId', 'incident_id', 'id']), ''),
       title: _asString(_readValue(json, ['title', 'name']), 'Unknown Incident'),
-      severity: _asString(_readValue(json, ['severity']), 'LOW'),
+      severity: TacticalIncidentSeverity.fromString(_asString(_readValue(json, ['severity']), 'LOW')),
       affectedPopulation: _asInt(_readValue(json, ['affected_population', 'affectedPeople', 'affectedPopulation'])),
-      status: _asString(_readValue(json, ['status']), 'ACTIVE'),
+      status: TacticalIncidentStatus.fromString(_asString(_readValue(json, ['status']), 'ACTIVE')),
       latitude: _readValue(json, ['latitude']) != null
           ? _asDouble(_readValue(json, ['latitude']))
           : _asMap(json['location'])?['latitude'] != null
@@ -484,6 +539,9 @@ class ReportData {
     this.reviewedAt,
     this.reporterName,
   });
+
+  String get shortId => (reportId.length > 8) ? '${reportId.substring(0, 8)}...' : reportId;
+  String get shortIncidentId => (incidentId.length > 8) ? '${incidentId.substring(0, 8)}...' : incidentId;
 
   factory ReportData.fromJson(Map<String, dynamic> json) {
     final locationJson = _asMap(_readValue(json, ['location']));
