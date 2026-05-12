@@ -274,7 +274,7 @@ export async function getAssignedResources(userId: string) {
 
 export async function getAssignedReports(userId: string) {
   const { data, error } = await supabase
-    .from('IncidentReport')
+    .from('IncomingReport')
     .select('report_id, incident_id, title, description, status, acknowledged, acknowledged_at, created_at, updated_at, assigned_to')
     .eq('assigned_to', userId)
     .order('created_at', { ascending: false })
