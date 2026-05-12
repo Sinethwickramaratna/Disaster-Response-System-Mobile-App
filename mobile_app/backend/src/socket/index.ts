@@ -134,8 +134,8 @@ export function getIO(existingServer?: HttpServer) {
           const eventType = payload.eventType
           
           if (table.toLowerCase() === 'resourcerequest') {
-            const data = eventType === 'DELETE' ? payload.old : payload.new
-            const requestId = data.request_id || data.requestId || data.id
+            const resourceRequest = eventType === 'DELETE' ? payload.old : payload.new
+            const requestId = resourceRequest.request_id || resourceRequest.requestId || resourceRequest.id
             
             let eventName = 'resourceRequest:updated'
             if (eventType === 'DELETE') eventName = 'resourceRequest:deleted'
@@ -145,34 +145,34 @@ export function getIO(existingServer?: HttpServer) {
             io.emit(eventName, {
               requestId,
               request_id: requestId,
-              userId: data.requested_by,
-              incidentId: data.incident_id,
-              status: data.status,
-              updatedAt: data.updated_at || data.updatedAt,
+              userId: resourceRequest.requested_by,
+              incidentId: resourceRequest.incident_id,
+              status: resourceRequest.status,
+              updatedAt: resourceRequest.updated_at || resourceRequest.updatedAt,
               event: eventName
             })
           } else if (table.toLowerCase() === 'logisticsdeployment') {
-            const data = eventType === 'DELETE' ? payload.old : payload.new
-            const deploymentId = data.deployment_id || data.deploymentId || data.id
-            const userId = data.user_id || data.userId
+            const logisticsDeployment = eventType === 'DELETE' ? payload.old : payload.new
+            const deploymentId = logisticsDeployment.deployment_id || logisticsDeployment.deploymentId || logisticsDeployment.id
+            const userId = logisticsDeployment.user_id || logisticsDeployment.userId
 
             if (!userId) {
               console.warn('[socket.io] Missing userId for LogisticsDeployment event. Skipping broadcast.')
               return
             }
 
-            const status = String(data.status || '').toUpperCase()
+            const status = String(logisticsDeployment.status || '').toUpperCase()
             const roomName = `officer:${userId}`
             const eventName = eventType === 'DELETE' ? 'resource:removed' : 'resource:statusUpdated'
             const broadcastPayload = {
               deploymentId,
               deployment_id: deploymentId,
               userId,
-              incidentId: data.incident_id,
+              incidentId: logisticsDeployment.incident_id,
               status,
-              itemsDispatched: data.items_dispatched,
-              completedAt: data.completed_at,
-              updatedAt: data.updated_at || data.completed_at || data.dispatched_at || new Date().toISOString(),
+              itemsDispatched: logisticsDeployment.items_dispatched,
+              completedAt: logisticsDeployment.completed_at,
+              updatedAt: logisticsDeployment.updated_at || logisticsDeployment.completed_at || logisticsDeployment.dispatched_at || new Date().toISOString(),
               event: eventName,
               type: 'LogisticsDeployment'
             }
