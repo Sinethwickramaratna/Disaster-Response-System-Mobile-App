@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { unwrapRelation, toNumber } from './assignment.service'
 
 export async function getAssignedReports(userId: string) {
   const { data: assignmentRows, error: assignmentError } = await supabase
@@ -61,8 +62,8 @@ export async function getAssignedReports(userId: string) {
       createdAt: report.created_at,
       updatedAt: report.updated_at,
       incidentId: report.incident_id,
-      latitude: report.latitude,
-      longitude: report.longitude,
+      latitude: toNumber(report.latitude),
+      longitude: toNumber(report.longitude),
       assignedAt: assignment?.assigned_at,
       assignedRole: assignment?.assigned_role,
     }
@@ -151,8 +152,8 @@ export async function getReportById(userId: string, reportId: string) {
     createdAt: data.created_at,
     updatedAt: data.updated_at,
     incidentId: data.incident_id,
-    latitude: data.latitude,
-    longitude: data.longitude,
+    latitude: toNumber(data.latitude),
+    longitude: toNumber(data.longitude),
     assignedAt: assignmentRow.assigned_at,
     assignedRole: assignmentRow.assigned_role,
     disasterType: incident?.disasterType || 'UNKNOWN',

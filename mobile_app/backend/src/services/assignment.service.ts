@@ -38,7 +38,7 @@ type DivisionRow = {
   province: string | null
 }
 
-function toNumber(value: number | string | null | undefined) {
+export function toNumber(value: number | string | null | undefined) {
   if (value === null || value === undefined) {
     return null
   }
@@ -55,7 +55,7 @@ function clampRatio(numerator: number, denominator: number) {
   return Math.max(0, Math.min(numerator / denominator, 1))
 }
 
-function unwrapRelation<T>(relation: T[] | T | null | undefined): T | null {
+export function unwrapRelation<T>(relation: T[] | T | null | undefined): T | null {
   if (!relation) {
     return null
   }
