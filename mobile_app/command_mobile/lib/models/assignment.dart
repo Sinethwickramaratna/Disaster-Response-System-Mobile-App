@@ -201,6 +201,24 @@ class AssignmentIncident {
       incident: IncidentData.fromJson(incidentJson),
     );
   }
+
+  AssignmentIncident copyWith({
+    String? assignmentId,
+    String? incidentId,
+    String? role,
+    String? status,
+    DateTime? assignedAt,
+    IncidentData? incident,
+  }) {
+    return AssignmentIncident(
+      assignmentId: assignmentId ?? this.assignmentId,
+      incidentId: incidentId ?? this.incidentId,
+      role: role ?? this.role,
+      status: status ?? this.status,
+      assignedAt: assignedAt ?? this.assignedAt,
+      incident: incident ?? this.incident,
+    );
+  }
 }
 
 class IncidentData {
@@ -261,6 +279,36 @@ class IncidentData {
       division: divisionJson != null ? DivisionData.fromJson(divisionJson) : null,
       description: _readValue(json, ['description'])?.toString(),
       publicVisibility: _asBool(_readValue(json, ['publicVisibility', 'public_visibility']), true),
+    );
+  }
+
+  IncidentData copyWith({
+    String? incidentId,
+    String? title,
+    TacticalIncidentSeverity? severity,
+    int? affectedPopulation,
+    TacticalIncidentStatus? status,
+    double? latitude,
+    double? longitude,
+    DateTime? createdAt,
+    DateTime? closedAt,
+    DivisionData? division,
+    String? description,
+    bool? publicVisibility,
+  }) {
+    return IncidentData(
+      incidentId: incidentId ?? this.incidentId,
+      title: title ?? this.title,
+      severity: severity ?? this.severity,
+      affectedPopulation: affectedPopulation ?? this.affectedPopulation,
+      status: status ?? this.status,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      createdAt: createdAt ?? this.createdAt,
+      closedAt: closedAt ?? this.closedAt,
+      division: division ?? this.division,
+      description: description ?? this.description,
+      publicVisibility: publicVisibility ?? this.publicVisibility,
     );
   }
 }

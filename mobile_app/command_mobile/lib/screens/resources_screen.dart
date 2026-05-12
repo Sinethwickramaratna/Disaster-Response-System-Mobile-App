@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/assignment.dart';
@@ -33,6 +34,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
   bool _isSubmittingRequest = false;
   String? _requestsMessage;
   String? _shelterMessage;
+  StreamSubscription? _socketSub;
 
   @override
   void initState() {
@@ -41,6 +43,14 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     _refreshResourceRequests();
     _refreshNearbyShelters();
     _refreshAssignedIncidents();
+
+    _socketSub = SocketService.instance.onAssignmentUpdate.listen((_) {
+      if (mounted) {
+        _refreshResources();
+        _refreshResourceRequests();
+        _refreshAssignedIncidents();
+      }
+    });
   }
 
   Future<void> _refreshResources() async {
@@ -139,9 +149,15 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _socketSub?.cancel();
+    super.dispose();
+  }
+
   Future<void> _refreshAssignedIncidents() async {
     try {
-      final incidents = await AssignmentService.fetchIncidents(status: 'ACTIVE');
+      final incidents = await AssignmentService.fetchIncidents();
       if (!mounted) return;
 
       setState(() {

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { getIO } from '@/socket'
 
 type ConfirmedIncidentRow = {
   id: string
@@ -263,5 +264,16 @@ export async function updateIncident(
   }
 
   console.log('[incident.service] Update successful:', data)
+
+  // Emit socket event for real-time update
+  const io = getIO()
+  if (io) {
+    io.emit('incident:updated', {
+      incidentId,
+      userId,
+      updates: data
+    })
+  }
+
   return data
 }

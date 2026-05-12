@@ -126,6 +126,8 @@ class SocketService {
       'resource:assigned',
       'resource:statusUpdated',
       'resourceRequest:updated',
+      'resourceRequest:created',
+      'resourceRequest:deleted',
     ]) {
       socket.on(eventName, (data) => _assignmentController.add(_toMap(data)));
     }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
@@ -23,11 +24,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   List<AssignmentIncident> _incidents = [];
   bool _isLoading = false;
+  StreamSubscription? _socketSub;
 
   @override
   void initState() {
     super.initState();
     _loadReports();
+
+    _socketSub = SocketService.instance.onAssignmentUpdate.listen((_) {
+      if (mounted) _loadReports();
+    });
+  }
+
+  @override
+  void dispose() {
+    _socketSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadReports() async {
@@ -273,10 +285,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Status: ${status.toUpperCase()}',
-                          style: GoogleFonts.spaceGrotesk(fontSize: 12, color: AppColors.outline),
-                        ),
+                        _buildStatusBadge(status),
                         const Icon(Icons.open_in_new, color: Color(0xFF4D8EFF), size: 20),
                       ],
                     ),
@@ -337,6 +346,7 @@ class _IncidentDetailsSheetState extends State<IncidentDetailsSheet> {
   late TextEditingController _affectedPeopleController;
   late TacticalIncidentStatus _selectedStatus;
   late TacticalIncidentSeverity _selectedSeverity;
+  late IncidentData _localIncident;
 
   @override
   void initState() {
@@ -347,6 +357,7 @@ class _IncidentDetailsSheetState extends State<IncidentDetailsSheet> {
         TextEditingController(text: (details.affectedPopulation ?? 0).toString());
     _selectedStatus = details.status;
     _selectedSeverity = details.severity;
+    _localIncident = details;
   }
 
   @override
@@ -370,7 +381,16 @@ class _IncidentDetailsSheetState extends State<IncidentDetailsSheet> {
       if (success) {
         widget.onUpdate();
         if (mounted) {
-          setState(() => _isEditing = false);
+          setState(() {
+            _isEditing = false;
+            // Update local incident state to reflect changes immediately
+            _localIncident = _localIncident.copyWith(
+              description: _descriptionController.text,
+              affectedPopulation: int.tryParse(_affectedPeopleController.text),
+              status: _selectedStatus,
+              severity: _selectedSeverity,
+            );
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Tactical data updated successfully')),
           );
@@ -391,7 +411,7 @@ class _IncidentDetailsSheetState extends State<IncidentDetailsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final details = widget.assignment.incident!;
+    final details = _localIncident;
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
       minChildSize: 0.5,
@@ -676,42 +696,6 @@ class _IncidentDetailsSheetState extends State<IncidentDetailsSheet> {
     );
   }
 
-  Widget _buildStatusBadge(dynamic status) {
-    final statusStr = status is TacticalIncidentStatus ? status.name : status.toString();
-    final bool isVerified = statusStr == 'VERIFIED' || statusStr == 'ACTIVE';
-    final bool isRejected = statusStr == 'REJECTED' || statusStr == 'FALSEREPORT';
-
-    final Color color = isVerified ? Colors.greenAccent : (isRejected ? AppColors.error : AppColors.tertiary);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: minAxisSize,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            statusStr.toUpperCase().replaceAll('_', ' '),
-            style: GoogleFonts.spaceGrotesk(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.0,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   MainAxisSize get minAxisSize => MainAxisSize.min;
 
@@ -832,5 +816,75 @@ class _IncidentDetailsSheetState extends State<IncidentDetailsSheet> {
         ),
       ),
     );
+  }
+  }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SHARED UTILITIES
+// ══════════════════════════════════════════════════════════════════════════════
+
+Widget _buildStatusBadge(dynamic status) {
+  final String statusStr = status is TacticalIncidentStatus 
+      ? status.name 
+      : (status?.toString() ?? 'UNKNOWN');
+  
+  final color = _getStatusColor(statusStr);
+  
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(4),
+      border: Border.all(color: color.withValues(alpha: 0.3)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          statusStr.toUpperCase().replaceAll('_', ' '),
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.0,
+            color: color,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Color _getStatusColor(String status) {
+  final s = status.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
+  switch (s) {
+    case 'ACTIVE':
+    case 'ASSIGNED':
+    case 'VERIFIED':
+      return const Color(0xFF4D8EFF);
+    case 'EN_ROUTE':
+    case 'PENDING_REVIEW':
+      return const Color(0xFFFFAB40);
+    case 'AT_THE_INCIDENT':
+    case 'ATTHEINCIDENT':
+    case 'ON_SITE':
+    case 'INSPECTING':
+      return const Color(0xFF00C853);
+    case 'FALSEREPORT':
+    case 'FALSE_REPORT':
+    case 'REJECTED':
+      return const Color(0xFFFF5252);
+    case 'RESOLVED':
+    case 'CLOSED':
+    case 'RELEASED':
+    case 'DUPLICATE':
+      return Colors.grey;
+    default:
+      return const Color(0xFFADC6FF);
   }
 }

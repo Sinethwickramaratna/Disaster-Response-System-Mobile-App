@@ -67,6 +67,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
 
       try {
+        // Refresh full dashboard data to ensure all lists are consistent
+        _loadDashboardData();
+        
         final summary = AssignmentSummary.fromJson(data);
         setState(() {
           summaryData = summary;
@@ -901,19 +904,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Color _getReportStatusColor(String status) {
-    switch (status.toUpperCase()) {
+    final s = status.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
+    switch (s) {
       case 'VERIFIED':
-        return Colors.greenAccent;
+      case 'ACTIVE':
+      case 'ASSIGNED':
+        return const Color(0xFF4D8EFF);
       case 'PENDING_REVIEW':
-        return Colors.orangeAccent;
+      case 'EN_ROUTE':
+        return const Color(0xFFFFAB40);
+      case 'AT_THE_INCIDENT':
+      case 'ATTHEINCIDENT':
+      case 'ON_SITE':
+      case 'INSPECTING':
+        return const Color(0xFF00C853);
       case 'REJECTED':
+      case 'FALSEREPORT':
+      case 'FALSE_REPORT':
         return Colors.redAccent;
       case 'DUPLICATE':
+      case 'RESOLVED':
+      case 'CLOSED':
+      case 'RELEASED':
         return Colors.grey;
       case 'CONVERTED_TO_INCIDENT':
         return Colors.blueAccent;
       default:
-        return Colors.white;
+        return Colors.white70;
     }
   }
 

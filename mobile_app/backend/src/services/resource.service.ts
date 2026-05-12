@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { getIO } from '@/socket'
 
 type ResourceRequestInput = {
   incidentId: string
@@ -74,12 +75,26 @@ export async function createResourceRequest(userId: string, input: ResourceReque
     throw error
   }
 
-  return {
+  const result = {
     requestId: data.request_id,
     status: data.status,
     createdAt: data.created_at,
     incidentId: data.incident_id,
   }
+
+  // Emit socket event for real-time update
+  const io = getIO()
+  if (io) {
+    io.emit('resourceRequest:created', {
+      requestId: data.request_id,
+      userId,
+      incidentId: data.incident_id,
+      status: data.status,
+      items
+    })
+  }
+
+  return result
 }
 
 export async function getMyResourceRequests(userId: string) {
@@ -101,6 +116,32 @@ export async function getMyResourceRequests(userId: string) {
     reviewedAt: request.reviewed_at,
     items: Array.isArray(request.items) ? request.items : request.items ?? [],
   }))
+}
+
+export async function deleteResourceRequest(userId: string, requestId: string) {
+  const { data, error } = await supabase
+    .from('ResourceRequest')
+    .delete()
+    .eq('request_id', requestId)
+    .eq('requested_by', userId) // Ensure user only deletes their own requests
+    .select('request_id, incident_id')
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  // Emit socket event for real-time update
+  const io = getIO()
+  if (io) {
+    io.emit('resourceRequest:deleted', {
+      requestId,
+      userId,
+      incidentId: data?.incident_id
+    })
+  }
+
+  return { success: true, requestId }
 }
 
 type NearbySheltersQuery = {

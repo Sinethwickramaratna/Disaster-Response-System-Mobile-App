@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../services/socket_service.dart';
+import '../services/notification_service.dart';
 
 class NotificationButton extends StatefulWidget {
   const NotificationButton({super.key});
@@ -13,29 +14,23 @@ class NotificationButton extends StatefulWidget {
 }
 
 class _NotificationButtonState extends State<NotificationButton> {
-  final List<Map<String, dynamic>> _notifications = [];
-  StreamSubscription? _notificationSub;
-
   @override
   void initState() {
     super.initState();
-    _notificationSub = SocketService.instance.onNotification.listen((data) {
-      if (!mounted) return;
+    NotificationService.instance.addListener(_onNotificationChanged);
+  }
 
-      setState(() {
-        _notifications.insert(0, data);
-        if (_notifications.length > 50) {
-          _notifications.removeRange(50, _notifications.length);
-        }
-      });
-    });
+  void _onNotificationChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    _notificationSub?.cancel();
+    NotificationService.instance.removeListener(_onNotificationChanged);
     super.dispose();
   }
+
+  List<Map<String, dynamic>> get _notifications => NotificationService.instance.notifications;
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +108,7 @@ class _NotificationButtonState extends State<NotificationButton> {
                     ),
                     TextButton(
                       onPressed: () {
-                        setState(() => _notifications.clear());
+                        NotificationService.instance.clearNotifications();
                         Navigator.pop(ctx);
                       },
                       child: const Text('CLEAR'),
