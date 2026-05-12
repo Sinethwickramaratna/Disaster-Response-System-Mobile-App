@@ -162,7 +162,11 @@ export function getIO(existingServer?: HttpServer) {
               return;
             }
 
-            io.to(`user:${userId}`).emit(eventName, {
+            const roomName = `user:${userId}`;
+            const roomSize = io.sockets.adapter.rooms.get(roomName)?.size || 0;
+            console.log(`[socket.io] Broadcasting ${eventName} to ${roomName} (Size: ${roomSize})`);
+
+            io.to(roomName).emit(eventName, {
               assignmentId: eventType === 'DELETE' ? payload.old.assignment_id : payload.new.assignment_id,
               incidentId: eventType === 'DELETE' ? payload.old.incident_id : payload.new.incident_id,
               role: eventType === 'DELETE' ? payload.old.assigned_role : payload.new.assigned_role,
@@ -170,7 +174,7 @@ export function getIO(existingServer?: HttpServer) {
               updatedAt: eventType === 'DELETE' ? new Date().toISOString() : (payload.new.assigned_at || new Date().toISOString()),
               event: eventName
             });
-            console.log(`[socket.io] Successfully broadcasted ${eventName} to user:${userId}`);
+            console.log(`[socket.io] Successfully broadcasted ${eventName} to ${roomName}`);
           } else if (table.toLowerCase() === 'confirmedincident' && eventType === 'UPDATE') {
             console.log(`[socket.io] Broadcasting incident:updated for ${payload.new.id}`)
             io.emit('incident:updated', {

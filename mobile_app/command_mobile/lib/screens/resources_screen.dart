@@ -971,6 +971,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
         .map((assignment) => assignment.incidentId)
         .whereType<String>()
         .where((id) => id.trim().isNotEmpty)
+        .toSet() // Ensure uniqueness to prevent Dropdown duplicates error
         .toList();
 
     if (incidentIds.isEmpty) {

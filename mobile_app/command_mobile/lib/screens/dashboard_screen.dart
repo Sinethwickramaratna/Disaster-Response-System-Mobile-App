@@ -52,9 +52,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   StreamSubscription? _notificationSub;
 
   void _subscribeRealtime() {
+    _assignmentSub = SocketService.instance.onAssignmentUpdate.listen((data) {
+      debugPrint('📡 Dashboard: Socket event received: ${data['event']}');
+      debugPrint('📡 Dashboard: Payload: $data');
+      if (mounted) _loadDashboardData();
+    });
+
     _notificationSub = SocketService.instance.onNotification.listen((data) {
       if (!mounted) return;
-      // Notifications are now handled globally by NotificationService
     });
 
     _alertSub = SocketService.instance.onAlert.listen((data) {

@@ -140,6 +140,7 @@ class SocketService {
       'resourceRequest:deleted',
     ]) {
       socket.on(eventName, (data) {
+        debugPrint('🔥 RAW SOCKET EVENT: $eventName -> $data');
         final map = _toMap(data);
         map['event'] = eventName;
         _assignmentController.add(map);
