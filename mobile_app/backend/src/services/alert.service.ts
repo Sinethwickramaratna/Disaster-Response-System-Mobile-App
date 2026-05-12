@@ -112,22 +112,3 @@ export async function getAlertById(alertId: string) {
 
   return null
 }
-    throw error
-  }
-
-  if (!data) {
-    return null
-  }
-
-  return {
-    id: data.id,
-    title: data.title,
-    description: data.description,
-    severity: data.severity,
-    district: data.district,
-    source: data.source,
-    isActive: data.isActive,
-    createdAt: data.createdAt,
-    expiresAt: data.expiresAt,
-  }
-}
