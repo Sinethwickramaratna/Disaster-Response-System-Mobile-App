@@ -58,10 +58,12 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
 
       if (mounted) {
         if (event == 'resourceRequest:deleted' && requestId != null) {
-          print('🗑️ DEBUG: [ResourcesScreen] MATCHED DELETE EVENT. Removing $requestId');
+          print('🗑️ DEBUG: [ResourcesScreen] IDs before removal: ${_resourceRequests.map((r) => r.requestId).toList()}');
+          print('🗑️ DEBUG: [ResourcesScreen] Attempting to remove: $requestId');
           setState(() {
             _resourceRequests.removeWhere((r) => r.requestId == requestId);
           });
+          print('🗑️ DEBUG: [ResourcesScreen] IDs after removal: ${_resourceRequests.map((r) => r.requestId).toList()}');
         }
         
         _refreshResources(ignoreCache: true);

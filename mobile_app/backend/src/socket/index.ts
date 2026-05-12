@@ -120,50 +120,41 @@ export function getIO(existingServer?: HttpServer) {
 
   // Setup Supabase Realtime Bridge
   if (!store.supabaseSubscribed) {
-    console.log('[socket.io] setting up supabase realtime bridge...')
+    console.log('[socket.io] setting up supabase realtime bridge (SCHEMA WIDE)...')
     
     supabase
-      .channel('db-changes')
+      .channel('db-wide-changes')
       .on(
         'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'ResourceRequest' },
+        { event: '*', schema: 'public' },
         (payload: any) => {
-          console.log('[socket.io] Supabase DB DELETE Payload:', JSON.stringify(payload))
-          const requestId = payload.old.request_id || payload.old.requestId || payload.old.id
-          console.log(`[socket.io] Detected DELETE for ResourceRequest: ${requestId}`)
-          io.emit('resourceRequest:deleted', {
-            requestId,
-            request_id: requestId,
-            userId: payload.old.requested_by
-          })
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'ResourceRequest' },
-        (payload: any) => {
-          console.log('[socket.io] Supabase DB UPDATE Payload:', JSON.stringify(payload))
-          const requestId = payload.new.request_id || payload.new.requestId || payload.new.id
-          console.log(`[socket.io] Detected UPDATE for ResourceRequest: ${requestId} status=${payload.new.status}`)
-          io.emit('resourceRequest:updated', {
-            requestId,
-            request_id: requestId,
-            userId: payload.new.requested_by,
-            incidentId: payload.new.incident_id,
-            status: payload.new.status
-          })
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'ConfirmedIncident' },
-        (payload: any) => {
-          const incidentId = payload.new.id
-          console.log(`[socket.io] Supabase DB UPDATE: ConfirmedIncident ${incidentId}`)
-          io.emit('incident:updated', {
-            incidentId,
-            updates: payload.new
-          })
+          console.log('[socket.io] Supabase DB EVENT:', payload.eventType, payload.table, JSON.stringify(payload))
+          
+          const table = payload.table
+          const eventType = payload.eventType
+          
+          if (table.toLowerCase() === 'resourcerequest') {
+            const data = eventType === 'DELETE' ? payload.old : payload.new
+            const requestId = data.request_id || data.requestId || data.id
+            const eventName = eventType === 'DELETE' ? 'resourceRequest:deleted' : 'resourceRequest:updated'
+            
+            console.log(`[socket.io] Broadcasting ${eventName} for ${requestId}`)
+            io.emit(eventName, {
+              requestId,
+              request_id: requestId,
+              userId: data.requested_by,
+              incidentId: data.incident_id,
+              status: data.status,
+              event: eventName
+            })
+          } else if (table.toLowerCase() === 'confirmedincident' && eventType === 'UPDATE') {
+            console.log(`[socket.io] Broadcasting incident:updated for ${payload.new.id}`)
+            io.emit('incident:updated', {
+              incidentId: payload.new.id,
+              updates: payload.new,
+              event: 'incident:updated'
+            })
+          }
         }
       )
       .subscribe((status: string) => {
