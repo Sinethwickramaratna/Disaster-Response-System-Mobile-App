@@ -49,7 +49,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   List<AssignmentIncident> get _filteredIncidents {
     if (_selectedFilter == 1) {
-      return _incidents.where((assignment) => assignment.incidentId.isNotEmpty).toList();
+      return _incidents.where((assignment) => assignment.incidentId?.isNotEmpty == true).toList();
     }
     if (_selectedFilter == 2) {
       return _incidents
@@ -257,12 +257,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          report.disasterType,
+                          incident?.title ?? 'ASSIGNED INCIDENT',
                           style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.onSurface),
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '${report.reportId} • ${report.reportedAt.toLocal()}',
+                          '${assignment.incidentId ?? "N/A"} • ${assignment.assignedAt.toLocal().toString().split(' ')[0]}',
                           style: GoogleFonts.spaceGrotesk(fontSize: 11, color: AppColors.outline),
                         ),
                       ],
@@ -274,8 +274,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: AppColors.outlineVariant),
                       ),
-                          '${assignment.incidentId} • ${assignment.assignedAt.toLocal()}',
-                        incident?.division?.district ?? incident?.division?.divisionName ?? 'ASSIGNED INCIDENT',
+                      child: Text(
+                        incident?.division?.district ?? incident?.division?.divisionName ?? 'TACTICAL',
                         style: GoogleFonts.spaceGrotesk(fontSize: 11, color: AppColors.onSurfaceVariant),
                       ),
                     ),
@@ -384,7 +384,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               ],
                             ),
                           ),
-                          _buildStatusBadge(details.verificationStatus),
+                          _buildStatusBadge(details.status),
                         ],
                       ),
                       const SizedBox(height: 24),
@@ -443,10 +443,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       _buildSectionTitle('ASSIGNMENT INFO'),
                       _buildInfoCard(
                         icon: Icons.badge_outlined,
-                        title: assignment.assignedRole,
+                        title: assignment.role,
                         subtitle: 'Assignment status: ${assignment.status}',
                         trailing: Text(
-                          assignment.assignedAt.toLocal().toString(),
+                          assignment.assignedAt.toLocal().toString().split(' ')[0],
                           style: GoogleFonts.inter(fontSize: 11, color: AppColors.outline),
                         ),
                       ),
@@ -475,7 +475,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       // ─── Section: Metadata ───
                       _buildSectionTitle('SYSTEM LOGS'),
                       _buildLogItem('Created at', details.createdAt.toLocal().toString()),
-                      _buildLogItem('Incident ID', assignment.incidentId),
+                      _buildLogItem('Incident ID', assignment.incidentId ?? 'N/A'),
                       _buildLogItem('Public visibility', details.publicVisibility ? 'Yes' : 'No'),
                       _buildLogItem('Severity', details.severity),
                       if (details.closedAt != null) _buildLogItem('Closed at', details.closedAt!.toLocal().toString()),
