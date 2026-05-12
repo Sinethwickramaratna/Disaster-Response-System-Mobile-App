@@ -136,8 +136,18 @@ class SocketService {
       });
     }
 
-    for (final eventName in const ['alert:critical', 'alert:public', 'alert:new']) {
-      socket.on(eventName, (data) => _alertController.add(_toMap(data)));
+    for (final eventName in const [
+      'alert:critical',
+      'alert:public',
+      'alert:new',
+      'alert:created',
+      'publicAlert:created'
+    ]) {
+      socket.on(eventName, (data) {
+        final map = _toMap(data);
+        map['event'] = eventName;
+        _alertController.add(map);
+      });
     }
 
     for (final eventName in const ['report:assigned', 'report:update']) {

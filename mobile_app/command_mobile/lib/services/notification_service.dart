@@ -16,6 +16,7 @@ class NotificationService extends ChangeNotifier {
 
   StreamSubscription? _socketSub;
   StreamSubscription? _assignmentSub;
+  StreamSubscription? _alertSub;
 
   void _init() {
     // Load historical notifications
@@ -28,6 +29,31 @@ class NotificationService extends ChangeNotifier {
       if (id.isNotEmpty) _processedIds.add(id);
       
       addNotification(data);
+    });
+
+    _alertSub = SocketService.instance.onAlert.listen((data) {
+      final event = data['event'] ?? '';
+      if (event == 'alert:created' || event == 'publicAlert:created') {
+        final alertId = data['alertId']?.toString() ?? '';
+        final updatedAt = data['updatedAt']?.toString() ?? '';
+        final dedupeId = 'alert:$alertId:$updatedAt';
+
+        if (alertId.isNotEmpty && _processedIds.contains(dedupeId)) return;
+        if (dedupeId.isNotEmpty) _processedIds.add(dedupeId);
+
+        final title = data['title']?.toString() ?? 'New Alert';
+        final severity = data['severity']?.toString() ?? 'NORMAL';
+        final type = event == 'publicAlert:created' ? 'PUBLIC ALERT' : (data['type']?.toString() ?? 'ALERT');
+        final message = data['message']?.toString() ?? 'A new $severity $type was issued.';
+
+        addNotification({
+          'title': title,
+          'message': message,
+          'type': type,
+          'severity': severity,
+          'createdAt': updatedAt.isNotEmpty ? updatedAt : DateTime.now().toIso8601String(),
+        });
+      }
     });
 
     // Also listen for resource and assignment events to show as notifications

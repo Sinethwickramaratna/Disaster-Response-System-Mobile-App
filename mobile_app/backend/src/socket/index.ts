@@ -160,6 +160,27 @@ export function getIO(existingServer?: HttpServer) {
               updates: payload.new,
               event: 'incident:updated'
             })
+          } else if (table.toLowerCase() === 'alert' && eventType === 'INSERT') {
+            console.log(`[socket.io] Broadcasting alert:created for ${payload.new.id}`)
+            io.emit('alert:created', {
+              alertId: payload.new.id,
+              title: payload.new.title,
+              severity: payload.new.severity,
+              type: payload.new.type,
+              district: payload.new.district,
+              updatedAt: payload.new.createdAt || payload.new.created_at,
+              event: 'alert:created'
+            })
+          } else if (table.toLowerCase() === 'publicalert' && eventType === 'INSERT') {
+            console.log(`[socket.io] Broadcasting publicAlert:created for ${payload.new.alert_id}`)
+            io.emit('publicAlert:created', {
+              alertId: payload.new.alert_id,
+              title: payload.new.title,
+              severity: payload.new.severity_level,
+              message: payload.new.message,
+              updatedAt: payload.new.issued_at,
+              event: 'publicAlert:created'
+            })
           }
         }
       )

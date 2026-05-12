@@ -55,7 +55,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _notificationSub = SocketService.instance.onNotification.listen((data) {
       if (!mounted) return;
       // Notifications are now handled globally by NotificationService
-      // but we can trigger a load if needed, though NotificationService already does it
+    });
+
+    _alertSub = SocketService.instance.onAlert.listen((data) {
+      if (!mounted) return;
+      _loadDashboardData();
     });
   }
 

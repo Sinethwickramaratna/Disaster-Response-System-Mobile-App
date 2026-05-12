@@ -20,11 +20,21 @@ class _AlertsScreenState extends State<AlertsScreen> {
   List<_AlertCardConfig> _alertCards = [];
   bool _isLoading = true;
   String? _errorMessage;
+  StreamSubscription? _alertSub;
 
   @override
   void initState() {
     super.initState();
     _refreshAlerts();
+    _alertSub = SocketService.instance.onAlert.listen((_) {
+      if (mounted) _refreshAlerts();
+    });
+  }
+
+  @override
+  void dispose() {
+    _alertSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _refreshAlerts() async {
