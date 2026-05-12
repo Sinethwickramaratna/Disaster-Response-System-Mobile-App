@@ -164,7 +164,7 @@ export function getIO(existingServer?: HttpServer) {
             const status = String(data.status || '').toUpperCase()
             const roomName = `officer:${userId}`
             const eventName = eventType === 'DELETE' ? 'resource:removed' : 'resource:statusUpdated'
-            const payload = {
+            const broadcastPayload = {
               deploymentId,
               deployment_id: deploymentId,
               userId,
@@ -178,8 +178,8 @@ export function getIO(existingServer?: HttpServer) {
             }
 
             console.log(`[socket.io] Broadcasting ${eventName} to ${roomName} for deployment ${deploymentId} status=${status}`)
-            io.to(roomName).emit(eventName, payload)
-            io.emit('resource:updated', payload)
+            io.to(roomName).emit(eventName, broadcastPayload)
+            io.emit('resource:updated', broadcastPayload)
           } else if (table.toLowerCase() === 'personnelassignment') {
             const userId = eventType === 'DELETE' ? payload.old.user_id : payload.new.user_id;
             
