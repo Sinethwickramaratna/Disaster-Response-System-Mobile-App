@@ -148,12 +148,15 @@ export function getIO(existingServer?: HttpServer) {
               userId: data.requested_by,
               incidentId: data.incident_id,
               status: data.status,
+              updatedAt: data.updated_at || data.updatedAt,
               event: eventName
             })
           } else if (table.toLowerCase() === 'confirmedincident' && eventType === 'UPDATE') {
             console.log(`[socket.io] Broadcasting incident:updated for ${payload.new.id}`)
             io.emit('incident:updated', {
               incidentId: payload.new.id,
+              status: payload.new.status,
+              updatedAt: payload.new.updated_at || payload.new.updatedAt,
               updates: payload.new,
               event: 'incident:updated'
             })

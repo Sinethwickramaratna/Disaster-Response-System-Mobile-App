@@ -5,6 +5,7 @@ import '../models/assignment.dart';
 import '../services/assignment_service.dart';
 import '../services/auth_service.dart';
 import '../services/socket_service.dart';
+import '../services/notification_service.dart';
 import '../components/app_drawer.dart';
 import '../components/notification_button.dart';
 import '../components/nav_bar.dart';
@@ -902,6 +903,13 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                                       messenger.showSnackBar(
                                         const SnackBar(content: Text('Failed to submit request')),
                                       );
+                                      // Add failure notification to history
+                                      NotificationService.instance.addNotification({
+                                        'title': 'Submission Failed',
+                                        'message': 'Failed to submit resource request ($resourceType x $quantity) for incident $incidentId',
+                                        'type': 'error',
+                                        'createdAt': DateTime.now().toIso8601String(),
+                                      });
                                     }
                                   } catch (e) {
                                     if (!mounted) return;
@@ -909,6 +917,13 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                                     messenger.showSnackBar(
                                       SnackBar(content: Text('Request failed: $e')),
                                     );
+                                    // Add failure notification to history
+                                    NotificationService.instance.addNotification({
+                                      'title': 'Request Error',
+                                      'message': 'Error submitting resource request: $e',
+                                      'type': 'error',
+                                      'createdAt': DateTime.now().toIso8601String(),
+                                    });
                                   } finally {
                                     if (mounted) {
                                       setState(() => _isSubmittingRequest = false);

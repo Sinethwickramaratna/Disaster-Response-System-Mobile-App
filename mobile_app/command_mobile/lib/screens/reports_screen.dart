@@ -6,6 +6,7 @@ import '../components/app_drawer.dart';
 import '../components/notification_button.dart';
 import '../components/nav_bar.dart';
 import '../services/assignment_service.dart';
+import '../services/notification_service.dart';
 import '../services/socket_service.dart';
 import '../models/assignment.dart';
 
@@ -404,6 +405,13 @@ class _IncidentDetailsSheetState extends State<IncidentDetailsSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error updating incident: $e')),
         );
+        // Add failure notification to history
+        NotificationService.instance.addNotification({
+          'title': 'Update Failed',
+          'message': 'Failed to update situation for incident ${widget.assignment.shortIncidentId}: $e',
+          'type': 'error',
+          'createdAt': DateTime.now().toIso8601String(),
+        });
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

@@ -42,9 +42,10 @@ class NotificationService extends ChangeNotifier {
 
       if (data.containsKey('requestId')) {
         final status = data['status']?.toString().toUpperCase() ?? 'PENDING';
-        dedupeId = 'res:${data['requestId']}:$event:$status';
+        final updatedAt = data['updatedAt']?.toString() ?? data['updated_at']?.toString() ?? '';
+        dedupeId = 'res:${data['requestId']}:$event:$status:$updatedAt';
         
-        if (_processedIds.contains(dedupeId)) return;
+        if (dedupeId.isNotEmpty && _processedIds.contains(dedupeId)) return;
         _processedIds.add(dedupeId);
 
         title = 'Resource Request';
@@ -57,9 +58,10 @@ class NotificationService extends ChangeNotifier {
         }
       } else if (data.containsKey('incidentId')) {
         final status = data['status']?.toString().toUpperCase() ?? '';
-        dedupeId = 'inc:${data['incidentId']}:$event:$status';
+        final updatedAt = data['updatedAt']?.toString() ?? data['updated_at']?.toString() ?? '';
+        dedupeId = 'inc:${data['incidentId']}:$event:$status:$updatedAt';
         
-        if (_processedIds.contains(dedupeId)) return;
+        if (dedupeId.isNotEmpty && _processedIds.contains(dedupeId)) return;
         _processedIds.add(dedupeId);
 
         title = 'Incident Update';
