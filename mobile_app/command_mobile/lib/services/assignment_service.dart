@@ -245,6 +245,7 @@ class AssignmentService {
     
     if (ignoreCache) {
       _cache.remove(cacheKey);
+      _inFlight.remove(cacheKey);
     }
 
     final cached = _cache[cacheKey];
@@ -253,7 +254,7 @@ class AssignmentService {
     }
 
     final inFlight = _inFlight[cacheKey];
-    if (inFlight != null) {
+    if (inFlight != null && !ignoreCache) {
       return inFlight;
     }
 

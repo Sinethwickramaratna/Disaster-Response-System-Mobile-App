@@ -134,13 +134,16 @@ class _NotificationButtonState extends State<NotificationButton> {
                           final title = notification['title']?.toString() ?? 'Notification';
                           final message = notification['message']?.toString() ?? notification['body']?.toString() ?? '';
                           final type = notification['type']?.toString() ?? 'general';
+                          final isDelete = message.toLowerCase().contains('removed') || 
+                                           message.toLowerCase().contains('cancelled') ||
+                                           type.toLowerCase() == 'deleted';
 
                           return Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10131A),
+                              color: isDelete ? Colors.red.withValues(alpha: 0.1) : const Color(0xFF10131A),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFF2A2D35)),
+                              border: Border.all(color: isDelete ? Colors.red.withValues(alpha: 0.3) : const Color(0xFF2A2D35)),
                             ),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,10 +152,14 @@ class _NotificationButtonState extends State<NotificationButton> {
                                   width: 36,
                                   height: 36,
                                   decoration: BoxDecoration(
-                                    color: Colors.blueAccent.withValues(alpha: 0.15),
+                                    color: isDelete ? Colors.red.withValues(alpha: 0.15) : Colors.blueAccent.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
-                                  child: const Icon(Icons.notifications_active, color: Colors.blueAccent, size: 18),
+                                  child: Icon(
+                                    isDelete ? Icons.delete_outline : Icons.notifications_active,
+                                    color: isDelete ? Colors.redAccent : Colors.blueAccent,
+                                    size: 18,
+                                  ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(

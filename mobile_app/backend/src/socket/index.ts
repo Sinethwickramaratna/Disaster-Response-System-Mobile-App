@@ -136,7 +136,10 @@ export function getIO(existingServer?: HttpServer) {
           if (table.toLowerCase() === 'resourcerequest') {
             const data = eventType === 'DELETE' ? payload.old : payload.new
             const requestId = data.request_id || data.requestId || data.id
-            const eventName = eventType === 'DELETE' ? 'resourceRequest:deleted' : 'resourceRequest:updated'
+            
+            let eventName = 'resourceRequest:updated'
+            if (eventType === 'DELETE') eventName = 'resourceRequest:deleted'
+            if (eventType === 'INSERT') eventName = 'resourceRequest:created'
             
             console.log(`[socket.io] Broadcasting ${eventName} for ${requestId}`)
             io.emit(eventName, {

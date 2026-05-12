@@ -40,36 +40,38 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
   @override
   void initState() {
     super.initState();
-    _refreshResources();
-    _refreshResourceRequests();
+    _refreshResources(ignoreCache: true);
+    _refreshResourceRequests(ignoreCache: true);
     _refreshNearbyShelters();
-    _refreshAssignedIncidents();
+    _refreshAssignedIncidents(ignoreCache: true);
 
     // Ensure socket is connected for real-time updates
     SocketService.instance.connect();
 
     _socketSub = SocketService.instance.onAssignmentUpdate.listen((data) {
+      if (!mounted) return;
+      
       final event = data['event'];
-      // Handle both camelCase and snake_case from different sources
       final requestId = data['requestId']?.toString() ?? data['request_id']?.toString();
       
-      print('📥 DEBUG: [ResourcesScreen] RAW EVENT DATA: $data');
-      print('📥 DEBUG: [ResourcesScreen] Extracted Event: $event, RequestID: $requestId');
+      debugPrint('📥 [ResourcesScreen] Socket Event: $event, RequestID: $requestId');
 
-      if (mounted) {
-        if (event == 'resourceRequest:deleted' && requestId != null) {
-          print('🗑️ DEBUG: [ResourcesScreen] IDs before removal: ${_resourceRequests.map((r) => r.requestId).toList()}');
-          print('🗑️ DEBUG: [ResourcesScreen] Attempting to remove: $requestId');
-          setState(() {
-            _resourceRequests.removeWhere((r) => r.requestId == requestId);
-          });
-          print('🗑️ DEBUG: [ResourcesScreen] IDs after removal: ${_resourceRequests.map((r) => r.requestId).toList()}');
-        }
-        
-        _refreshResources(ignoreCache: true);
-        _refreshResourceRequests(ignoreCache: true);
-        _refreshAssignedIncidents(ignoreCache: true);
+      // Optimistic local update for deletion
+      if (event == 'resourceRequest:deleted' && requestId != null) {
+        setState(() {
+          _resourceRequests.removeWhere((r) => r.requestId.toLowerCase() == requestId.toLowerCase());
+        });
       }
+      
+      // Always trigger a full refresh to ensure data consistency with the server
+      // Small delay to allow DB operations to complete
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) {
+          _refreshResources(ignoreCache: true);
+          _refreshResourceRequests(ignoreCache: true);
+          _refreshAssignedIncidents(ignoreCache: true);
+        }
+      });
     });
   }
 
