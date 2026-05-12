@@ -82,6 +82,25 @@ class NotificationService extends ChangeNotifier {
         } else {
           message = 'Request ${data['requestId']} is now $status';
         }
+      } else if (data.containsKey('assignmentId')) {
+        final status = data['status']?.toString().toUpperCase() ?? 'ACTIVE';
+        final updatedAt = data['updatedAt']?.toString() ?? data['updated_at']?.toString() ?? '';
+        dedupeId = 'asgn:${data['assignmentId']}:$event:$status:$updatedAt';
+        
+        if (dedupeId.isNotEmpty && _processedIds.contains(dedupeId)) return;
+        _processedIds.add(dedupeId);
+
+        title = 'Personnel Assignment';
+        if (event == 'assignment:deleted' || event == 'incident:removed') {
+          title = 'Assignment Removed';
+          message = 'You have been unassigned from Incident ${data['incidentId']}';
+        } else if (event == 'assignment:created' || event == 'incident:assigned') {
+          title = 'New Assignment';
+          final role = data['role']?.toString() ?? 'Responder';
+          message = 'You have been assigned to Incident ${data['incidentId']} as $role';
+        } else {
+          message = 'Assignment ${data['assignmentId']} is now $status';
+        }
       } else if (data.containsKey('incidentId')) {
         print('📌 NotificationService: Processing incident-related event: $event for ${data['incidentId']}');
         final status = data['status']?.toString().toUpperCase() ?? '';
@@ -99,15 +118,6 @@ class NotificationService extends ChangeNotifier {
           message = 'Incident ${data['incidentId']} status changed to $status';
         } else {
           message = 'Incident ${data['incidentId']} data was updated';
-        }
-
-        if (event == 'incident:assigned') {
-          title = 'New Incident Assigned';
-          final role = data['role']?.toString() ?? 'Responder';
-          message = 'You have been assigned to Incident ${data['incidentId']} as $role';
-        } else if (event == 'incident:removed') {
-          title = 'Assignment Removed';
-          message = 'You have been unassigned from Incident ${data['incidentId']}';
         }
       }
 

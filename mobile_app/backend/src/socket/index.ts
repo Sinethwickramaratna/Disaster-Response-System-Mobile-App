@@ -153,26 +153,31 @@ export function getIO(existingServer?: HttpServer) {
             })
           } else if (table.toLowerCase() === 'personnelassignment') {
             const userId = eventType === 'DELETE' ? payload.old.user_id : payload.new.user_id;
-            const eventName = eventType === 'INSERT' ? 'incident:assigned' : (eventType === 'DELETE' ? 'incident:removed' : 'incident:updated');
             
-            console.log(`[socket.io] PersonnelAssignment ${eventType} detected. Targeting user:${userId}`);
+            let eventName = 'assignment:updated';
+            if (eventType === 'INSERT') eventName = 'assignment:created';
+            if (eventType === 'DELETE') eventName = 'assignment:deleted';
+            
+            console.log(`[socket.io] PersonnelAssignment ${eventType} detected. Targeting officer:${userId}`);
             
             if (!userId) {
               console.warn(`[socket.io] Missing userId for ${eventType} on PersonnelAssignment. Event will not be broadcasted.`);
               return;
             }
 
-            const roomName = `user:${userId}`;
+            const roomName = `officer:${userId}`;
             const roomSize = io.sockets.adapter.rooms.get(roomName)?.size || 0;
             console.log(`[socket.io] Broadcasting ${eventName} to ${roomName} (Size: ${roomSize})`);
 
             io.to(roomName).emit(eventName, {
               assignmentId: eventType === 'DELETE' ? payload.old.assignment_id : payload.new.assignment_id,
+              assignment_id: eventType === 'DELETE' ? payload.old.assignment_id : payload.new.assignment_id,
               incidentId: eventType === 'DELETE' ? payload.old.incident_id : payload.new.incident_id,
               role: eventType === 'DELETE' ? payload.old.assigned_role : payload.new.assigned_role,
               status: eventType === 'DELETE' ? 'REMOVED' : payload.new.status,
               updatedAt: eventType === 'DELETE' ? new Date().toISOString() : (payload.new.assigned_at || new Date().toISOString()),
-              event: eventName
+              event: eventName,
+              type: 'PersonnelAssignment'
             });
             console.log(`[socket.io] Successfully broadcasted ${eventName} to ${roomName}`);
           } else if (table.toLowerCase() === 'confirmedincident' && eventType === 'UPDATE') {

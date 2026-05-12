@@ -37,7 +37,14 @@ class SocketService {
   }
 
   Future<void> connect() async {
-    if (_socket?.connected == true) return;
+    final user = AuthService.currentUser;
+    if (_socket?.connected == true) {
+      if (user != null && user.userId != null) {
+        _socket!.emit('join', user.userId);
+        debugPrint('[SocketService] Already connected, force-joining room: user:${user.userId}');
+      }
+      return;
+    }
 
     final token = await AuthService.getToken();
     if (token == null || token.isEmpty) return;
@@ -101,8 +108,10 @@ class SocketService {
         joinDistrict(district);
       }
       if (user != null && user.userId != null) {
+        debugPrint('[SocketService] EMITTING JOIN for user: ${user.userId}');
         socket.emit('join', user.userId);
-        debugPrint('[SocketService] joined personal room: user:${user.userId}');
+      } else {
+        debugPrint('[SocketService] CANNOT JOIN: user or userId is null. user: $user');
       }
       debugPrint('[SocketService] frontend socket.io connected: ${socket.connected}');
     });
@@ -133,6 +142,9 @@ class SocketService {
       'incident:removed',
       'incident:updated',
       'assignment:update',
+      'assignment:updated',
+      'assignment:created',
+      'assignment:deleted',
       'resource:assigned',
       'resource:statusUpdated',
       'resourceRequest:updated',
