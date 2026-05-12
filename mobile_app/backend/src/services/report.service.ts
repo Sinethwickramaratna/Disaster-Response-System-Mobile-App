@@ -4,9 +4,9 @@ import { toNumber } from './assignment.service'
 export async function getAssignedReports(userId: string) {
   // Fetch latest 20 reports globally so the dashboard always has data
   const { data, error } = await supabase
-    .from('Report')
+    .from('IncidentReport')
     .select(
-      'id, incident_id, assigned_to, title, description, status, acknowledged, acknowledged_at, created_at, updated_at'
+      'report_id, incident_id, assigned_to, title, description, status, acknowledged, acknowledged_at, created_at, updated_at'
     )
     .order('created_at', { ascending: false })
     .limit(20)
@@ -50,8 +50,8 @@ export async function getAssignedReports(userId: string) {
     const assignment = assignmentMap[report.incident_id]
     const incident = incidentMapById[report.incident_id]
     return {
-      reportId: report.id.toString(),
-      id: report.id.toString(),
+      reportId: report.report_id.toString(),
+      id: report.report_id.toString(),
       source: 'incident_report',
       reporterName: report.title || 'Field Report',
       contact: null,
@@ -74,11 +74,11 @@ export async function getAssignedReports(userId: string) {
 
 export async function getReportById(userId: string, reportId: string) {
   const { data, error } = await supabase
-    .from('Report')
+    .from('IncidentReport')
     .select(
-      'id, incident_id, assigned_to, title, description, status, acknowledged, acknowledged_at, created_at, updated_at'
+      'report_id, incident_id, assigned_to, title, description, status, acknowledged, acknowledged_at, created_at, updated_at'
     )
-    .eq('id', reportId)
+    .eq('report_id', reportId)
     .maybeSingle()
 
   if (error) {
@@ -133,8 +133,8 @@ export async function getReportById(userId: string, reportId: string) {
   }
 
   return {
-    reportId: data.id.toString(),
-    id: data.id.toString(),
+    reportId: data.report_id.toString(),
+    id: data.report_id.toString(),
     source: 'incident_report',
     reporterName: 'Field Officer',
     contact: null,
@@ -158,9 +158,9 @@ export async function getReportById(userId: string, reportId: string) {
 export async function acknowledgeReport(userId: string, reportId: string) {
   // We need to verify if the user is assigned to the incident this report belongs to
   const { data: report, error: reportError } = await supabase
-    .from('Report')
+    .from('IncidentReport')
     .select('incident_id')
-    .eq('id', reportId)
+    .eq('report_id', reportId)
     .maybeSingle()
 
   if (reportError || !report) {
@@ -179,15 +179,15 @@ export async function acknowledgeReport(userId: string, reportId: string) {
   }
 
   const { data, error } = await supabase
-    .from('Report')
+    .from('IncidentReport')
     .update({
       status: 'ACKNOWLEDGED',
       acknowledged: true,
       acknowledged_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq('id', reportId)
-    .select('id, updated_at')
+    .eq('report_id', reportId)
+    .select('report_id, updated_at')
     .maybeSingle()
 
   if (error) {
@@ -205,7 +205,7 @@ export async function acknowledgeReport(userId: string, reportId: string) {
   }
 
   return {
-    reportId: data.id.toString(),
+    reportId: data.report_id.toString(),
     acknowledgedAt: data.updated_at,
   }
 }
