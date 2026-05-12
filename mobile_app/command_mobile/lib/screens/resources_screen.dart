@@ -50,12 +50,15 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
 
     _socketSub = SocketService.instance.onAssignmentUpdate.listen((data) {
       final event = data['event'];
+      // Handle both camelCase and snake_case from different sources
       final requestId = data['requestId']?.toString() ?? data['request_id']?.toString();
       
-      print('📥 DEBUG: ResourcesScreen received socket event: $event for id: $requestId');
+      print('📥 DEBUG: [ResourcesScreen] RAW EVENT DATA: $data');
+      print('📥 DEBUG: [ResourcesScreen] Extracted Event: $event, RequestID: $requestId');
 
       if (mounted) {
         if (event == 'resourceRequest:deleted' && requestId != null) {
+          print('🗑️ DEBUG: [ResourcesScreen] MATCHED DELETE EVENT. Removing $requestId');
           setState(() {
             _resourceRequests.removeWhere((r) => r.requestId == requestId);
           });

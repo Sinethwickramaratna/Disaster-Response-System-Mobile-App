@@ -128,10 +128,12 @@ export function getIO(existingServer?: HttpServer) {
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'ResourceRequest' },
         (payload: any) => {
-          const requestId = payload.old.request_id
-          console.log(`[socket.io] Supabase DB DELETE: ResourceRequest ${requestId}`)
+          console.log('[socket.io] Supabase DB DELETE Payload:', JSON.stringify(payload))
+          const requestId = payload.old.request_id || payload.old.requestId || payload.old.id
+          console.log(`[socket.io] Detected DELETE for ResourceRequest: ${requestId}`)
           io.emit('resourceRequest:deleted', {
             requestId,
+            request_id: requestId,
             userId: payload.old.requested_by
           })
         }
@@ -140,10 +142,12 @@ export function getIO(existingServer?: HttpServer) {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'ResourceRequest' },
         (payload: any) => {
-          const requestId = payload.new.request_id
-          console.log(`[socket.io] Supabase DB UPDATE: ResourceRequest ${requestId} status=${payload.new.status}`)
+          console.log('[socket.io] Supabase DB UPDATE Payload:', JSON.stringify(payload))
+          const requestId = payload.new.request_id || payload.new.requestId || payload.new.id
+          console.log(`[socket.io] Detected UPDATE for ResourceRequest: ${requestId} status=${payload.new.status}`)
           io.emit('resourceRequest:updated', {
             requestId,
+            request_id: requestId,
             userId: payload.new.requested_by,
             incidentId: payload.new.incident_id,
             status: payload.new.status
