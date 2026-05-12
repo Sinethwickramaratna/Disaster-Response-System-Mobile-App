@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'socket_service.dart';
-import 'auth_service.dart';
+import 'assignment_service.dart';
 
 class NotificationService extends ChangeNotifier {
   NotificationService._internal() {
@@ -18,6 +18,9 @@ class NotificationService extends ChangeNotifier {
   StreamSubscription? _assignmentSub;
 
   void _init() {
+    // Load historical notifications
+    loadNotifications();
+
     _socketSub = SocketService.instance.onNotification.listen((data) {
       print('🔔 NotificationService: Received raw notification: $data');
       final id = data['id']?.toString() ?? data['notificationId']?.toString() ?? '';
@@ -38,14 +41,6 @@ class NotificationService extends ChangeNotifier {
       String? dedupeId;
 
       if (data.containsKey('requestId')) {
-        final triggeringUser = data['userId']?.toString() ?? data['user_id']?.toString();
-        // Skip notification if it was triggered by the current user (e.g. they just submitted it)
-        final currentUserId = AuthService.currentUser?.userId;
-        if (triggeringUser != null && currentUserId != null && 
-            triggeringUser.toLowerCase() == currentUserId.toLowerCase()) {
-          return;
-        }
-
         final status = data['status']?.toString().toUpperCase() ?? 'PENDING';
         dedupeId = 'res:${data['requestId']}:$event:$status';
         
@@ -92,6 +87,32 @@ class NotificationService extends ChangeNotifier {
       _notifications.removeRange(50, _notifications.length);
     }
     notifyListeners();
+  }
+
+  Future<void> loadNotifications() async {
+    try {
+      final historical = await AssignmentService.fetchNotifications();
+      for (final n in historical) {
+        final id = n['notificationId']?.toString() ?? n['id']?.toString() ?? '';
+        if (id.isNotEmpty && _processedIds.contains(id)) continue;
+        if (id.isNotEmpty) _processedIds.add(id);
+        
+        _notifications.add(n);
+      }
+      // Sort by date if possible (backend already sorts, but just in case)
+      _notifications.sort((a, b) {
+        final dateA = DateTime.tryParse(a['createdAt']?.toString() ?? a['created_at']?.toString() ?? '') ?? DateTime(0);
+        final dateB = DateTime.tryParse(b['createdAt']?.toString() ?? b['created_at']?.toString() ?? '') ?? DateTime(0);
+        return dateB.compareTo(dateA);
+      });
+      
+      if (_notifications.length > 50) {
+        _notifications.removeRange(50, _notifications.length);
+      }
+      notifyListeners();
+    } catch (e) {
+      print('❌ NotificationService: Failed to load historical notifications: $e');
+    }
   }
 
   void clearNotifications() {

@@ -9,12 +9,19 @@ import 'package:command_mobile/screens/resources_screen.dart';
 import 'package:command_mobile/theme/app_theme.dart';
 import 'package:command_mobile/services/auth_service.dart';
 
+import 'package:command_mobile/services/notification_service.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
   await AuthService.initializeSession();
 
   final hasToken = await AuthService.hasValidToken();
+  if (hasToken) {
+    // Pre-load notifications for returning users
+    NotificationService.instance.loadNotifications();
+  }
+  
   final initialRoute = hasToken ? '/dashboard' : '/login';
 
   runApp(MyApp(initialRoute: initialRoute));

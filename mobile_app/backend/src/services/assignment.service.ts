@@ -104,7 +104,7 @@ async function getOfficerAssignmentRows(userId: string) {
 export async function getAssignmentSummary(userId: string) {
   const [{ count: criticalAlerts }, { count: activeAssignments }, { count: totalAssignments }, { count: readyResources }, { count: totalResources }] = await Promise.all([
     supabase.from('Alert').select('id', { count: 'exact', head: true }).eq('severity', 'CRITICAL').eq('isActive', true),
-    supabase.from('PersonnelAssignment').select('assignment_id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'ACTIVE'),
+    supabase.from('PersonnelAssignment').select('assignment_id', { count: 'exact', head: true }).eq('user_id', userId).neq('status', 'RELEASED'),
     supabase.from('PersonnelAssignment').select('assignment_id', { count: 'exact', head: true }).eq('user_id', userId),
     supabase.from('LogisticsDeployment').select('deployment_id', { count: 'exact', head: true }).eq('user_id', userId).in('status', ['READY', 'DEPLOYED', 'DELIVERED']),
     supabase.from('LogisticsDeployment').select('deployment_id', { count: 'exact', head: true }).eq('user_id', userId),

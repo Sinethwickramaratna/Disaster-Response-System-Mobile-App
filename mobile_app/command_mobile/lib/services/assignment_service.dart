@@ -146,6 +146,11 @@ class AssignmentService {
     return _buildReportsResponse(reports);
   }
 
+  static Future<List<Map<String, dynamic>>> fetchNotifications() async {
+    final decoded = await _cachedJson('/api/notifications');
+    return _asList(decoded);
+  }
+
   static Future<ReportData?> fetchReportById(String reportId) async {
     final cleanId = reportId.trim();
     if (cleanId.isEmpty) return null;

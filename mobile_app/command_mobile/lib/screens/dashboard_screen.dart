@@ -5,6 +5,8 @@ import 'package:command_mobile/components/nav_bar.dart';
 import 'package:command_mobile/models/assignment.dart';
 import 'package:command_mobile/services/assignment_service.dart';
 import 'package:command_mobile/services/socket_service.dart';
+import 'package:command_mobile/services/notification_service.dart';
+import 'package:command_mobile/components/notification_button.dart';
 import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
@@ -22,7 +24,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<AlertData> alertsData = [];
   List<AssignmentIncident> incidentsData = [];
   List<ReportData> reportsData = [];
-  List<Map<String, dynamic>> _notifications = [];
   bool isLoading = true;
   String? errorMessage;
   bool _hasLoadedDashboard = false;
@@ -51,112 +52,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   StreamSubscription? _notificationSub;
 
   void _subscribeRealtime() {
-    _assignmentSub = SocketService.instance.onAssignmentUpdate.listen((data) {
-      // Notification is now handled globally by NotificationService
-
-      _addNotification(
-        title: 'Assigned incident update',
-        message: _buildAssignmentNotificationMessage(data),
-        type: 'assignment',
-        dedupeKey: data['assignmentId']?.toString() ?? data['incidentId']?.toString(),
-      );
-
-      try {
-        // Refresh full dashboard data to ensure all lists are consistent
-        _loadDashboardData();
-        
-        final summary = AssignmentSummary.fromJson(data);
-        setState(() {
-          summaryData = summary;
-        });
-      } catch (e) {
-        print('[Dashboard] Failed to parse assignment summary update: $e');
-      }
-    });
-
-    _alertSub = SocketService.instance.onAlert.listen((data) {
-      try {
-        final alert = AlertData.fromJson(data);
-        setState(() {
-          alertsData.removeWhere((a) => a.id == alert.id);
-          alertsData.insert(0, alert);
-        });
-        // Notification is now handled globally by NotificationService
-        _addNotification(
-          title: alert.title,
-          message: '${alert.district.isNotEmpty ? '${alert.district} • ' : ''}${alert.severity}',
-          type: 'alert',
-          dedupeKey: 'alert:${alert.id}',
-        );
-        // Refresh summary in background
-        _loadDashboardData();
-      } catch (e) {
-        print('[Dashboard] Failed to parse alert payload: $e');
-      }
-    });
-
-    _reportSub = SocketService.instance.onReportUpdate.listen((data) {
-      try {
-        final report = ReportData.fromJson(data);
-        setState(() {
-          // update reports or show notification - for now refresh reports list
-        });
-      } catch (e) {
-        print('[Dashboard] Failed to parse report payload: $e');
-      }
-    });
-
     _notificationSub = SocketService.instance.onNotification.listen((data) {
       if (!mounted) return;
-
-      _addNotification(
-        title: data['title']?.toString() ?? 'Notification',
-        message: data['message']?.toString() ?? data['body']?.toString() ?? '',
-        type: data['type']?.toString() ?? 'general',
-        dedupeKey: data['id']?.toString(),
-      );
+      // Notifications are now handled globally by NotificationService
+      // but we can trigger a load if needed, though NotificationService already does it
     });
   }
 
-  void _addNotification({
-    required String title,
-    required String message,
-    required String type,
-    String? dedupeKey,
-  }) {
-    if (!mounted) return;
-
-    setState(() {
-      if (dedupeKey != null && dedupeKey.trim().isNotEmpty) {
-        _notifications.removeWhere((item) => item['dedupeKey'] == dedupeKey);
-      }
-
-      _notifications.insert(0, {
-        'title': title,
-        'message': message,
-        'type': type,
-        'dedupeKey': dedupeKey,
-        'timestamp': DateTime.now().toIso8601String(),
-      });
-
-      if (_notifications.length > 50) {
-        _notifications.removeRange(50, _notifications.length);
-      }
-    });
-  }
-
-  String _buildAssignmentNotificationMessage(Map<String, dynamic> data) {
-    final incidentId = data['incidentId']?.toString() ?? data['incident_id']?.toString();
-    final status = data['status']?.toString() ?? data['assignmentStatus']?.toString();
-    final role = data['assignedRole']?.toString() ?? data['role']?.toString();
-
-    final parts = <String>[];
-    if (incidentId != null && incidentId.isNotEmpty) parts.add('Incident $incidentId');
-    if (role != null && role.isNotEmpty) parts.add(role);
-    if (status != null && status.isNotEmpty) parts.add(status);
-
-    return parts.isEmpty ? 'A new assigned incident was added' : parts.join(' • ');
-  }
+  // Notifications are handled by NotificationService globally
 
   Future<void> _loadDashboardData() async {
     setState(() => isLoading = true);
@@ -240,140 +143,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return 'T-MINUS $hours:$minutes:$seconds';
   }
 
-  void _showNotificationsSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.72,
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            border: Border.all(color: borderColor),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 10),
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'NOTIFICATIONS',
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        setState(() => _notifications.clear());
-                        Navigator.pop(ctx);
-                      },
-                      child: const Text('CLEAR'),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: Color(0xFF2A2D35)),
-              Expanded(
-                child: _notifications.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No notifications yet',
-                          style: GoogleFonts.inter(color: textSecondary),
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _notifications.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final notification = _notifications[index];
-                          final title = notification['title']?.toString() ?? 'Notification';
-                          final message = notification['message']?.toString() ?? notification['body']?.toString() ?? '';
-                          final type = notification['type']?.toString() ?? 'general';
-
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: bgColor,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: borderColor),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: Colors.blueAccent.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(Icons.notifications_active, color: Colors.blueAccent, size: 18),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        title,
-                                        style: GoogleFonts.inter(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      if (message.isNotEmpty) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          message,
-                                          style: GoogleFonts.inter(
-                                            color: textSecondary,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        type.toUpperCase(),
-                                        style: GoogleFonts.spaceGrotesk(
-                                          color: Colors.blueAccent,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1.0,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  // Sheet is now handled by NotificationButton component
 
   @override
   Widget build(BuildContext context) {
@@ -402,38 +172,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         actions: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications, color: Color(0xFF4D8EFF)),
-                onPressed: _showNotificationsSheet,
-              ),
-              if (_notifications.isNotEmpty)
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    constraints: const BoxConstraints(minWidth: 18),
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: Colors.black, width: 1),
-                    ),
-                    child: Text(
-                      _notifications.length > 9 ? '9+' : '${_notifications.length}',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          )
+        const NotificationButton(),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),

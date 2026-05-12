@@ -4,6 +4,8 @@ import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../models/user.dart';
 
+import '../services/notification_service.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -63,6 +65,9 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = false);
 
     if (user != null) {
+      // Load historical notifications after successful login
+      NotificationService.instance.loadNotifications();
+      
       Navigator.pushReplacementNamed(
         context,
         '/dashboard',
