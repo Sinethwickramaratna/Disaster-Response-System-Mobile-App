@@ -59,7 +59,10 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
       // Optimistic local update for deletion
       if (event == 'resourceRequest:deleted' && requestId != null) {
         setState(() {
-          _resourceRequests.removeWhere((r) => r.requestId.toLowerCase() == requestId.toLowerCase());
+          // Convert to growable list if it's fixed-length to avoid Unsupported operation error
+          final currentRequests = List<ResourceRequestData>.from(_resourceRequests);
+          currentRequests.removeWhere((r) => r.requestId.toLowerCase() == requestId.toLowerCase());
+          _resourceRequests = currentRequests;
         });
       }
       
@@ -890,16 +893,19 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                                     if (success) {
                                       Navigator.pop(ctx);
                                       await _refreshResourceRequests(ignoreCache: true);
+                                      ScaffoldMessenger.of(this.context).hideCurrentSnackBar();
                                       ScaffoldMessenger.of(this.context).showSnackBar(
                                         const SnackBar(content: Text('Resource request submitted')),
                                       );
                                     } else {
+                                      messenger.hideCurrentSnackBar();
                                       messenger.showSnackBar(
                                         const SnackBar(content: Text('Failed to submit request')),
                                       );
                                     }
                                   } catch (e) {
                                     if (!mounted) return;
+                                    messenger.hideCurrentSnackBar();
                                     messenger.showSnackBar(
                                       SnackBar(content: Text('Request failed: $e')),
                                     );

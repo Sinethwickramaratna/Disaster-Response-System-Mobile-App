@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticateFieldOfficer } from '@/lib/auth'
 import { jsonServerError, jsonValidationError } from '@/lib/response'
 import { createResourceRequest } from '@/services/resource.service'
-import { emitNotificationNew, emitResourceRequestUpdated } from '@/lib/socket'
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,18 +46,6 @@ export async function POST(req: NextRequest) {
       quantity,
       priority,
       notes,
-    })
-
-    emitResourceRequestUpdated(auth.context.userId, incidentId, {
-      requestId: result.requestId,
-      status: result.status,
-      createdAt: result.createdAt,
-    })
-
-    emitNotificationNew(auth.context.userId, {
-      title: 'Resource request submitted',
-      message: 'Your resource request has been submitted successfully.',
-      type: 'RESOURCE_REQUEST',
     })
 
     return NextResponse.json(

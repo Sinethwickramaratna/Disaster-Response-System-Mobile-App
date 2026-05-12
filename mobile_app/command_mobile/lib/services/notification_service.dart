@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'socket_service.dart';
+import 'auth_service.dart';
 
 class NotificationService extends ChangeNotifier {
   NotificationService._internal() {
@@ -37,6 +38,14 @@ class NotificationService extends ChangeNotifier {
       String? dedupeId;
 
       if (data.containsKey('requestId')) {
+        final triggeringUser = data['userId']?.toString() ?? data['user_id']?.toString();
+        // Skip notification if it was triggered by the current user (e.g. they just submitted it)
+        final currentUserId = AuthService.currentUser?.userId;
+        if (triggeringUser != null && currentUserId != null && 
+            triggeringUser.toLowerCase() == currentUserId.toLowerCase()) {
+          return;
+        }
+
         final status = data['status']?.toString().toUpperCase() ?? 'PENDING';
         dedupeId = 'res:${data['requestId']}:$event:$status';
         
