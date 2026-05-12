@@ -28,7 +28,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   // Tactical filter labels (kept minimal for officer workflow)
   final List<String> _filterLabels = ['ALL', 'ASSIGNED', 'PRIORITY'];
 
-  List<ReportData> _reports = [];
+  List<AssignmentIncident> _incidents = [];
   bool _isLoading = false;
 
   @override
@@ -39,26 +39,26 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Future<void> _loadReports() async {
     setState(() => _isLoading = true);
-    final response = await AssignmentService.fetchReports();
+    final response = await AssignmentService.fetchIncidents();
     if (!mounted) return;
     setState(() {
-      _reports = response?.reports ?? [];
+      _incidents = response;
       _isLoading = false;
     });
   }
 
-  List<ReportData> get _filteredReports {
+  List<AssignmentIncident> get _filteredIncidents {
     if (_selectedFilter == 1) {
-      return _reports.where((report) => report.incidentId.isNotEmpty).toList();
+      return _incidents.where((assignment) => assignment.incidentId.isNotEmpty).toList();
     }
     if (_selectedFilter == 2) {
-      return _reports
-          .where((report) =>
-              report.verificationStatus.toUpperCase() == 'PENDING' ||
-              report.verificationStatus.toUpperCase() == 'UNDER_REVIEW')
+      return _incidents
+          .where((assignment) =>
+              assignment.status.toUpperCase() == 'PENDING' ||
+              assignment.status.toUpperCase() == 'UNDER_REVIEW')
           .toList();
     }
-    return _reports;
+    return _incidents;
   }
 
   @override
@@ -186,11 +186,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ? const Center(child: CircularProgressIndicator())
                     : ListView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                        itemCount: _filteredReports.length,
+                        itemCount: _filteredIncidents.length,
                         itemBuilder: (context, index) {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16),
-                            child: _buildReportCard(_filteredReports[index]),
+                            child: _buildReportCard(_filteredIncidents[index]),
                           );
                         },
                       ),
@@ -220,10 +220,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
   // ═══════════════════════════════════════
   //  REPORT CARD
   // ═══════════════════════════════════════
-  Widget _buildReportCard(ReportData report) {
-    final status = report.verificationStatus.toUpperCase();
+  Widget _buildReportCard(AssignmentIncident assignment) {
+    final incident = assignment.incident;
+    final status = assignment.status.toUpperCase();
     final Color accent = switch (status) {
-      'VERIFIED' => Colors.greenAccent,
+      'ACTIVE' => Colors.greenAccent,
       'REJECTED' => AppColors.error,
       _ => AppColors.primary,
     };
@@ -231,7 +232,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _openReportDetails(report.reportId),
+        onTap: () => _openIncidentDetails(assignment),
         borderRadius: BorderRadius.circular(4),
         child: Container(
           clipBehavior: Clip.antiAlias,
@@ -273,15 +274,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: AppColors.outlineVariant),
                       ),
-                      child: Text(
-                        report.district,
+                          '${assignment.incidentId} • ${assignment.assignedAt.toLocal()}',
+                        incident?.division?.district ?? incident?.division?.divisionName ?? 'ASSIGNED INCIDENT',
                         style: GoogleFonts.spaceGrotesk(fontSize: 11, color: AppColors.onSurfaceVariant),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(report.description ?? '-', style: GoogleFonts.inter(fontSize: 14, color: AppColors.onSurface)),
+                Text(
+                  incident?.description ?? 'No incident description provided.',
+                  style: GoogleFonts.inter(fontSize: 14, color: AppColors.onSurface),
+                ),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -291,8 +295,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       style: GoogleFonts.spaceGrotesk(fontSize: 12, color: AppColors.outline),
                     ),
                     IconButton(
-                      tooltip: 'View report',
-                      onPressed: () => _openReportDetails(report.reportId),
+                      tooltip: 'View incident',
+                      onPressed: () => _openIncidentDetails(assignment),
                       icon: const Icon(Icons.open_in_new, color: Color(0xFF4D8EFF)),
                     ),
                   ],
@@ -307,12 +311,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Future<void> _openReportDetails(String reportId) async {
-    final details = await AssignmentService.fetchReportById(reportId);
-    if (!mounted) return;
-    if (details == null) {
+  Future<void> _openIncidentDetails(AssignmentIncident assignment) async {
+    final details = assignment.incident;
+    if (details == null || !mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to load report details')),
+        const SnackBar(content: Text('Unable to load incident details')),
       );
       return;
     }
@@ -320,71 +323,326 @@ class _ReportsScreenState extends State<ReportsScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          child: SingleChildScrollView(
+        return DraggableScrollableSheet(
+          initialChildSize: 0.8,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (_, scrollController) => Container(
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border(top: BorderSide(color: AppColors.outlineVariant, width: 1)),
+            ),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Report ${details.reportId}',
-                        style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
+                // ─── Header Handle ───
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    IconButton(
-                      tooltip: 'Open in map',
-                      icon: const Icon(Icons.map),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.pushReplacementNamed(
-                          context,
-                          '/map',
-                          arguments: {
-                            'focusLat': details.location.latitude,
-                            'focusLon': details.location.longitude,
-                            'focusReportId': details.reportId,
-                          },
-                        );
-                      },
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Text('Type: ${details.disasterType}'),
-                Text('Source: ${details.source}'),
-                Text('District: ${details.district}'),
-                Text('Verification: ${details.verificationStatus}'),
-                Text('Incident: ${details.incidentId}'),
-                Text('Created: ${details.reportedAt.toLocal()}'),
-                Text('Coordinates: ${details.location.latitude}, ${details.location.longitude}'),
-                if (details.contact != null && details.contact!.isNotEmpty) Text('Contact: ${details.contact}'),
-                if (details.sosId != null && details.sosId!.isNotEmpty) Text('SOS: ${details.sosId}'),
-                if (details.deviceId != null && details.deviceId!.isNotEmpty) Text('Device: ${details.deviceId}'),
-                if (details.reviewedById != null && details.reviewedById!.isNotEmpty) Text('Reviewed By: ${details.reviewedById}'),
-                if (details.reviewedAt != null) Text('Reviewed At: ${details.reviewedAt!.toLocal()}'),
-                if (details.officerNotes != null && details.officerNotes!.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text('Officer Notes', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-                  Text(details.officerNotes!),
-                ],
-                if (details.mediaUrls.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text('Media URLs (${details.mediaUrls.length})', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-                  ...details.mediaUrls.map((url) => Text(url)),
-                ],
-                const SizedBox(height: 8),
-                Text('Description', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-                Text(details.description ?? '-'),
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                    children: [
+                      // ─── Top Identity Section ───
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'INCIDENT #${assignment.incidentId}',
+                                  style: GoogleFonts.spaceGrotesk(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.5,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  details.title,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.onSurface,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          _buildStatusBadge(details.verificationStatus),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ─── Primary Action Buttons ───
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildTacticalButton(
+                                label: 'ASSIGNMENT',
+                              icon: Icons.check_circle_outline,
+                              onTap: () {
+                                Navigator.pop(context);
+                              },
+                              isPrimary: true,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildTacticalButton(
+                              label: 'LOCATE ON MAP',
+                              icon: Icons.map_outlined,
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.pushReplacementNamed(
+                                  context,
+                                  '/map',
+                                  arguments: {
+                                    'focusLat': details.latitude,
+                                    'focusLon': details.longitude,
+                                    'focusReportId': assignment.incidentId,
+                                  },
+                                );
+                              },
+                              isPrimary: false,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+
+                      // ─── Section: Location Details ───
+                      _buildSectionTitle('LOCATION & AREA'),
+                      _buildInfoCard(
+                        icon: Icons.location_on,
+                        title: details.division?.district ?? details.division?.divisionName ?? 'Assigned area',
+                        subtitle: 'District Jurisdiction',
+                        trailing: Text(
+                          '${details.latitude?.toStringAsFixed(4) ?? '-'}, ${details.longitude?.toStringAsFixed(4) ?? '-'}',
+                          style: GoogleFonts.spaceGrotesk(fontSize: 11, color: AppColors.outline),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ─── Section: Assignment Information ───
+                      _buildSectionTitle('ASSIGNMENT INFO'),
+                      _buildInfoCard(
+                        icon: Icons.badge_outlined,
+                        title: assignment.assignedRole,
+                        subtitle: 'Assignment status: ${assignment.status}',
+                        trailing: Text(
+                          assignment.assignedAt.toLocal().toString(),
+                          style: GoogleFonts.inter(fontSize: 11, color: AppColors.outline),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ─── Section: Incident Content ───
+                      _buildSectionTitle('SITUATION DESCRIPTION'),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.outlineVariant),
+                        ),
+                        child: Text(
+                          details.description ?? 'No tactical description provided for this incident.',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            height: 1.6,
+                            color: AppColors.onSurface.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ─── Section: Metadata ───
+                      _buildSectionTitle('SYSTEM LOGS'),
+                      _buildLogItem('Created at', details.createdAt.toLocal().toString()),
+                      _buildLogItem('Incident ID', assignment.incidentId),
+                      _buildLogItem('Public visibility', details.publicVisibility ? 'Yes' : 'No'),
+                      _buildLogItem('Severity', details.severity),
+                      if (details.closedAt != null) _buildLogItem('Closed at', details.closedAt!.toLocal().toString()),
+                      
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    final bool isVerified = status.toUpperCase() == 'VERIFIED';
+    final bool isRejected = status.toUpperCase() == 'REJECTED';
+    
+    final Color color = isVerified ? Colors.greenAccent : (isRejected ? AppColors.error : AppColors.tertiary);
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            status.toUpperCase(),
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.0,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        title,
+        style: GoogleFonts.spaceGrotesk(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.5,
+          color: AppColors.outline,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoCard({required IconData icon, required String title, required String subtitle, Widget? trailing}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.onSurface),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.outline),
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) trailing,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogItem(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(fontSize: 13, color: AppColors.outline),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTacticalButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+    required bool isPrimary,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: isPrimary ? AppColors.primaryContainer : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: isPrimary ? null : Border.all(color: AppColors.outlineVariant),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isPrimary ? AppColors.onPrimaryContainer : AppColors.primary,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                  color: isPrimary ? AppColors.onPrimaryContainer : AppColors.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
