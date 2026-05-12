@@ -144,6 +144,17 @@ class AssignmentService {
     return _buildReportsResponse(reports);
   }
 
+  static Future<ReportData?> fetchReportById(String reportId) async {
+    final cleanId = reportId.trim();
+    if (cleanId.isEmpty) return null;
+
+    final decoded = await _cachedJson('/api/reports/$cleanId');
+    if (decoded is Map<String, dynamic>) {
+      return ReportData.fromJson(decoded);
+    }
+    return null;
+  }
+
   static Future<bool> submitResourceRequest({
     required String incidentId,
     required String resourceType,
@@ -339,12 +350,12 @@ class AssignmentService {
   static ReportsResponse _buildReportsResponse(List<ReportData> reports) {
     final activeCount = reports.where((report) {
       final status = report.status.toUpperCase();
-      return status == 'PENDING' || status == 'IN_PROGRESS' || status == 'ACTIVE';
+      return status == 'PENDING' || status == 'IN_PROGRESS' || status == 'ACTIVE' || status == 'UNDER_REVIEW';
     }).length;
 
     final completedCount = reports.where((report) {
       final status = report.status.toUpperCase();
-      return status == 'COMPLETED' || status == 'RESOLVED' || status == 'CLOSED';
+      return status == 'COMPLETED' || status == 'RESOLVED' || status == 'CLOSED' || status == 'VERIFIED' || status == 'REJECTED';
     }).length;
 
     return ReportsResponse(
@@ -353,7 +364,7 @@ class AssignmentService {
       activeCount: activeCount,
       completedCount: completedCount,
       pendingCount: reports
-          .where((report) => report.status.toUpperCase() == 'PENDING')
+          .where((report) => report.status.toUpperCase() == 'PENDING' || report.status.toUpperCase() == 'UNDER_REVIEW')
           .length,
     );
   }

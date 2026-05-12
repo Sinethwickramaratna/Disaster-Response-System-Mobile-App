@@ -51,6 +51,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   String? _locationStatus;
   bool _retryLocationWhenResumed = false;
   bool _hasCenteredOnShelters = false;
+  bool _hasAppliedRouteFocus = false;
   // Track current center and zoom to avoid depending on MapController internals
   late LatLng _mapCenter;
   double _currentZoom = 13.0;
@@ -174,6 +175,27 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_hasAppliedRouteFocus) return;
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is! Map) return;
+
+    final lat = double.tryParse(args['focusLat']?.toString() ?? '');
+    final lon = double.tryParse(args['focusLon']?.toString() ?? '');
+    if (lat == null || lon == null) return;
+
+    _hasAppliedRouteFocus = true;
+    final focus = LatLng(lat, lon);
+    _mapCenter = focus;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mapController.move(focus, 15.0);
+    });
+  }
+
+  @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
@@ -216,7 +238,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           }
         }
 
-        if (!_hasCenteredOnShelters && firstWithCoords != null && firstWithCoords.latitude != null && firstWithCoords.longitude != null) {
+        if (!_hasCenteredOnShelters &&
+            !_hasAppliedRouteFocus &&
+            firstWithCoords != null &&
+            firstWithCoords.latitude != null &&
+            firstWithCoords.longitude != null) {
           final newCenter = LatLng(firstWithCoords.latitude!, firstWithCoords.longitude!);
           _mapCenter = newCenter;
           _hasCenteredOnShelters = true;
@@ -518,7 +544,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
                 if (_showReports)
                   MarkerLayer(
-                    markers: _reports.map((r) {
+                    markers: _reports.where((r) {
+                      final lat = r.location.latitude;
+                      final lon = r.location.longitude;
+                      return lat != 0 && lon != 0;
+                    }).map((r) {
                       final lat = r.location.latitude;
                       final lon = r.location.longitude;
                       return Marker(
@@ -536,7 +566,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                                 children: [
                                   Text(r.title, style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
                                   const SizedBox(height: 8),
-                                  Text('Type: ${r.disasterType} • Severity: ${r.severity}'),
+                                  Text('Type: ${r.disasterType} • Verification: ${r.verificationStatus}'),
                                   const SizedBox(height: 8),
                                   Text(r.description ?? ''),
                                 ],

@@ -447,6 +447,15 @@ class ReportData {
   final DateTime reportedAt;
   final DateTime updatedAt;
   final DateTime assignedAt;
+  final String source;
+  final String? contact;
+  final List<String> mediaUrls;
+  final String verificationStatus;
+  final String? sosId;
+  final String? deviceId;
+  final String? officerNotes;
+  final String? reviewedById;
+  final DateTime? reviewedAt;
 
   ReportData({
     required this.reportId,
@@ -463,17 +472,42 @@ class ReportData {
     required this.reportedAt,
     required this.updatedAt,
     required this.assignedAt,
+    required this.source,
+    this.contact,
+    required this.mediaUrls,
+    required this.verificationStatus,
+    this.sosId,
+    this.deviceId,
+    this.officerNotes,
+    this.reviewedById,
+    this.reviewedAt,
   });
 
   factory ReportData.fromJson(Map<String, dynamic> json) {
     final locationJson = _asMap(_readValue(json, ['location']));
+    final disasterType = _asString(_readValue(json, ['disasterType', 'disaster_type']), 'UNKNOWN');
+    final verificationStatus = _asString(
+      _readValue(json, ['verificationStatus', 'verification_status', 'status']),
+      'PENDING',
+    );
+    final source = _asString(_readValue(json, ['source', 'report_source']), 'UNKNOWN');
+    final mediaRaw = _readValue(json, ['mediaUrls', 'media_urls']);
+    final mediaUrls = mediaRaw is List
+        ? mediaRaw.map((item) => item.toString()).where((item) => item.trim().isNotEmpty).toList(growable: false)
+        : const <String>[];
+    final incidentId = _asString(_readValue(json, ['incidentId', 'incident_id']), 'unknown-incident');
+    final reportId = _asString(_readValue(json, ['reportId', 'report_id', 'id']), 'unknown-report');
+
     return ReportData(
-      reportId: _asString(_readValue(json, ['reportId', 'report_id']), 'unknown-report'),
-      incidentId: _asString(_readValue(json, ['incidentId', 'incident_id']), 'unknown-incident'),
-      title: _asString(_readValue(json, ['title']), 'Untitled Report'),
-      disasterType: _asString(_readValue(json, ['disasterType', 'disaster_type']), 'UNKNOWN'),
+      reportId: reportId,
+      incidentId: incidentId,
+      title: _asString(
+        _readValue(json, ['title']),
+        '$disasterType Report',
+      ),
+      disasterType: disasterType,
       severity: _asString(_readValue(json, ['severity']), 'LOW'),
-      status: _asString(_readValue(json, ['status']), 'PENDING'),
+      status: verificationStatus,
       assignedRole: _asString(_readValue(json, ['assignedRole', 'assigned_role', 'assignedTo']), 'UNKNOWN'),
       description: _readValue(json, ['description'])?.toString(),
       district: _asString(_readValue(json, ['district']), 'UNKNOWN'),
@@ -487,6 +521,17 @@ class ReportData {
       reportedAt: _asDateTime(_readValue(json, ['reportedAt', 'reported_at', 'createdAt', 'created_at'])),
       updatedAt: _asDateTime(_readValue(json, ['updatedAt', 'updated_at'])),
       assignedAt: _asDateTime(_readValue(json, ['assignedAt', 'assigned_at', 'createdAt', 'created_at'])),
+      source: source,
+      contact: _readValue(json, ['contact'])?.toString(),
+      mediaUrls: mediaUrls,
+      verificationStatus: verificationStatus,
+      sosId: _readValue(json, ['sosId', 'sos_id'])?.toString(),
+      deviceId: _readValue(json, ['deviceId', 'device_id'])?.toString(),
+      officerNotes: _readValue(json, ['officerNotes', 'officer_notes'])?.toString(),
+      reviewedById: _readValue(json, ['reviewedById', 'reviewed_by_id'])?.toString(),
+      reviewedAt: _readValue(json, ['reviewedAt', 'reviewed_at']) != null
+          ? _asDateTime(_readValue(json, ['reviewedAt', 'reviewed_at']))
+          : null,
     );
   }
 }

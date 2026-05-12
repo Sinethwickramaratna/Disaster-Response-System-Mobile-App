@@ -273,22 +273,54 @@ export async function getAssignedResources(userId: string) {
 }
 
 export async function getAssignedReports(userId: string) {
+  const { data: assignmentRows, error: assignmentError } = await supabase
+    .from('PersonnelAssignment')
+    .select('incident_id')
+    .eq('user_id', userId)
+    .order('assigned_at', { ascending: false })
+
+  if (assignmentError) {
+    throw assignmentError
+  }
+
+  const incidentIds = Array.from(
+    new Set((assignmentRows ?? []).map((row) => row.incident_id).filter(Boolean))
+  )
+
+  if (incidentIds.length === 0) {
+    return []
+  }
+
   const { data, error } = await supabase
     .from('IncomingReport')
-    .select('report_id, incident_id, title, description, status, acknowledged, acknowledged_at, created_at, updated_at, assigned_to')
-    .eq('assigned_to', userId)
-    .order('created_at', { ascending: false })
+    .select(
+      'id, source, disasterType, district, latitude, longitude, description, contact, mediaUrls, verificationStatus, createdAt, sosId, deviceId, officerNotes, reviewedById, reviewedAt, incidentId'
+    )
+    .in('incidentId', incidentIds)
+    .order('createdAt', { ascending: false })
 
   if (error) {
     throw error
   }
 
   return (data ?? []).map((report) => ({
-    reportId: report.report_id,
-    incidentId: report.incident_id,
-    title: report.title,
-    status: report.status,
-    acknowledged: report.acknowledged ?? false,
-    createdAt: report.created_at,
+    reportId: report.id,
+    id: report.id,
+    source: report.source,
+    disasterType: report.disasterType,
+    district: report.district,
+    latitude: report.latitude,
+    longitude: report.longitude,
+    description: report.description,
+    contact: report.contact,
+    mediaUrls: Array.isArray(report.mediaUrls) ? report.mediaUrls : [],
+    verificationStatus: report.verificationStatus,
+    createdAt: report.createdAt,
+    sosId: report.sosId,
+    deviceId: report.deviceId,
+    officerNotes: report.officerNotes,
+    reviewedById: report.reviewedById,
+    reviewedAt: report.reviewedAt,
+    incidentId: report.incidentId,
   }))
 }

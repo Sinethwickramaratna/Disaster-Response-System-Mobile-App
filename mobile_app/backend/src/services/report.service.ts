@@ -1,11 +1,36 @@
 import { supabase } from '@/lib/supabase'
 
 export async function getAssignedReports(userId: string) {
+  const { data: assignmentRows, error: assignmentError } = await supabase
+    .from('PersonnelAssignment')
+    .select('incident_id')
+    .eq('user_id', userId)
+    .order('assigned_at', { ascending: false })
+
+  if (assignmentError) {
+    console.error('[report.service] assignment lookup failed', {
+      userId,
+      code: assignmentError.code,
+      message: assignmentError.message,
+      details: assignmentError.details,
+      hint: assignmentError.hint,
+    })
+    throw assignmentError
+  }
+
+  const incidentIds = Array.from(
+    new Set((assignmentRows ?? []).map((row) => row.incident_id).filter(Boolean))
+  )
+
+  if (incidentIds.length === 0) {
+    return []
+  }
+
   const { data, error } = await supabase
     .from('IncomingReport')
-    .select('report_id, incident_id, title, description, status, acknowledged, created_at, assigned_to')
-    .eq('assigned_to', userId)
-    .order('created_at', { ascending: false })
+    .select('id, source, disasterType, district, verificationStatus, createdAt, incidentId')
+    .in('incidentId', incidentIds)
+    .order('createdAt', { ascending: false })
 
   if (error) {
     console.error('[report.service] getAssignedReports failed', {
@@ -19,21 +44,23 @@ export async function getAssignedReports(userId: string) {
   }
 
   return (data ?? []).map((report) => ({
-    reportId: report.report_id,
-    incidentId: report.incident_id,
-    title: report.title,
-    status: report.status,
-    acknowledged: report.acknowledged ?? false,
-    createdAt: report.created_at,
+    reportId: report.id,
+    source: report.source,
+    disasterType: report.disasterType,
+    district: report.district,
+    verificationStatus: report.verificationStatus,
+    createdAt: report.createdAt,
+    incidentId: report.incidentId,
   }))
 }
 
 export async function getReportById(userId: string, reportId: string) {
   const { data, error } = await supabase
     .from('IncomingReport')
-    .select('report_id, incident_id, assigned_to, title, description, status, acknowledged, created_at')
-    .eq('report_id', reportId)
-    .eq('assigned_to', userId)
+    .select(
+      'id, source, disasterType, district, latitude, longitude, description, contact, mediaUrls, verificationStatus, createdAt, sosId, deviceId, officerNotes, reviewedById, reviewedAt, incidentId'
+    )
+    .eq('id', reportId)
     .maybeSingle()
 
   if (error) {
@@ -52,15 +79,52 @@ export async function getReportById(userId: string, reportId: string) {
     return null
   }
 
+  const incidentId = data.incidentId
+  if (!incidentId) {
+    return null
+  }
+
+  const { data: assignmentRow, error: assignmentError } = await supabase
+    .from('PersonnelAssignment')
+    .select('assignment_id')
+    .eq('user_id', userId)
+    .eq('incident_id', incidentId)
+    .maybeSingle()
+
+  if (assignmentError) {
+    console.error('[report.service] report access check failed', {
+      userId,
+      reportId,
+      incidentId,
+      code: assignmentError.code,
+      message: assignmentError.message,
+    })
+    throw assignmentError
+  }
+
+  if (!assignmentRow) {
+    return null
+  }
+
   return {
-    reportId: data.report_id,
-    title: data.title,
+    reportId: data.id,
+    id: data.id,
+    source: data.source,
+    disasterType: data.disasterType,
+    district: data.district,
+    latitude: data.latitude,
+    longitude: data.longitude,
     description: data.description,
-    status: data.status,
-    incidentId: data.incident_id,
-    assignedTo: data.assigned_to,
-    acknowledged: data.acknowledged ?? false,
-    createdAt: data.created_at,
+    contact: data.contact,
+    mediaUrls: Array.isArray(data.mediaUrls) ? data.mediaUrls : [],
+    verificationStatus: data.verificationStatus,
+    createdAt: data.createdAt,
+    sosId: data.sosId,
+    deviceId: data.deviceId,
+    officerNotes: data.officerNotes,
+    reviewedById: data.reviewedById,
+    reviewedAt: data.reviewedAt,
+    incidentId: data.incidentId,
   }
 }
 
