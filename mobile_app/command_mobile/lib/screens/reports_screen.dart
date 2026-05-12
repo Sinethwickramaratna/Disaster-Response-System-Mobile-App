@@ -261,7 +261,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '${report.reportId} • ${report.createdAt.toLocal()}',
+                          '${report.reportId} • ${report.reportedAt.toLocal()}',
                           style: GoogleFonts.spaceGrotesk(fontSize: 11, color: AppColors.outline),
                         ),
                       ],
@@ -360,7 +360,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 Text('District: ${details.district}'),
                 Text('Verification: ${details.verificationStatus}'),
                 Text('Incident: ${details.incidentId}'),
-                Text('Created: ${details.createdAt.toLocal()}'),
+                Text('Created: ${details.reportedAt.toLocal()}'),
                 Text('Coordinates: ${details.location.latitude}, ${details.location.longitude}'),
                 if (details.contact != null && details.contact!.isNotEmpty) Text('Contact: ${details.contact}'),
                 if (details.sosId != null && details.sosId!.isNotEmpty) Text('SOS: ${details.sosId}'),

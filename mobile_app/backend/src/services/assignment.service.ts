@@ -275,7 +275,7 @@ export async function getAssignedResources(userId: string) {
 export async function getAssignedReports(userId: string) {
   const { data: assignmentRows, error: assignmentError } = await supabase
     .from('PersonnelAssignment')
-    .select('incident_id')
+    .select('incident_id, assigned_at, assigned_role')
     .eq('user_id', userId)
     .order('assigned_at', { ascending: false })
 
@@ -292,35 +292,65 @@ export async function getAssignedReports(userId: string) {
   }
 
   const { data, error } = await supabase
-    .from('IncomingReport')
+    .from('Report')
     .select(
-      'id, source, disasterType, district, latitude, longitude, description, contact, mediaUrls, verificationStatus, createdAt, sosId, deviceId, officerNotes, reviewedById, reviewedAt, incidentId'
+      `
+        report_id, 
+        source_channel, 
+        reporter_name, 
+        contact_info, 
+        description, 
+        media_url, 
+        latitude, 
+        longitude, 
+        status, 
+        created_at, 
+        updated_at, 
+        incident_id,
+        ConfirmedIncident:incident_id (
+          disasterType,
+          district
+        )
+      `
     )
-    .in('incidentId', incidentIds)
-    .order('createdAt', { ascending: false })
+    .in('incident_id', incidentIds)
+    .order('created_at', { ascending: false })
 
   if (error) {
     throw error
   }
 
-  return (data ?? []).map((report) => ({
-    reportId: report.id,
-    id: report.id,
-    source: report.source,
-    disasterType: report.disasterType,
-    district: report.district,
-    latitude: report.latitude,
-    longitude: report.longitude,
-    description: report.description,
-    contact: report.contact,
-    mediaUrls: Array.isArray(report.mediaUrls) ? report.mediaUrls : [],
-    verificationStatus: report.verificationStatus,
-    createdAt: report.createdAt,
-    sosId: report.sosId,
-    deviceId: report.deviceId,
-    officerNotes: report.officerNotes,
-    reviewedById: report.reviewedById,
-    reviewedAt: report.reviewedAt,
-    incidentId: report.incidentId,
-  }))
+  // Create a map for quick lookup of assignment details by incident_id
+  const assignmentMap = (assignmentRows ?? []).reduce((acc, row) => {
+    acc[row.incident_id] = row
+    return acc
+  }, {} as Record<string, any>)
+
+  return (data ?? []).map((report) => {
+    const assignment = assignmentMap[report.incident_id]
+    const incident = unwrapRelation(report.ConfirmedIncident) as any
+
+    return {
+      reportId: report.report_id.toString(),
+      id: report.report_id.toString(),
+      source: report.source_channel,
+      reporterName: report.reporter_name,
+      contact: report.contact_info,
+      description: report.description,
+      mediaUrls: report.media_url ? [report.media_url] : [],
+      status: report.status,
+      verificationStatus: report.status,
+      createdAt: report.created_at,
+      updatedAt: report.updated_at,
+      incidentId: report.incident_id,
+      latitude: toNumber(report.latitude),
+      longitude: toNumber(report.longitude),
+      assignedAt: assignment?.assigned_at,
+      assignedRole: assignment?.assigned_role,
+      disasterType: incident?.disasterType || 'UNKNOWN',
+      district: incident?.district || 'UNKNOWN',
+    }
+  })
 }
+
+

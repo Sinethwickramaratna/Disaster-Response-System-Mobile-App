@@ -456,6 +456,7 @@ class ReportData {
   final String? officerNotes;
   final String? reviewedById;
   final DateTime? reviewedAt;
+  final String? reporterName;
 
   ReportData({
     required this.reportId,
@@ -481,6 +482,7 @@ class ReportData {
     this.officerNotes,
     this.reviewedById,
     this.reviewedAt,
+    this.reporterName,
   });
 
   factory ReportData.fromJson(Map<String, dynamic> json) {
@@ -490,20 +492,22 @@ class ReportData {
       _readValue(json, ['verificationStatus', 'verification_status', 'status']),
       'PENDING',
     );
-    final source = _asString(_readValue(json, ['source', 'report_source']), 'UNKNOWN');
-    final mediaRaw = _readValue(json, ['mediaUrls', 'media_urls']);
+    final source = _asString(_readValue(json, ['source', 'report_source', 'source_channel']), 'UNKNOWN');
+    final mediaRaw = _readValue(json, ['mediaUrls', 'media_urls', 'media_url']);
     final mediaUrls = mediaRaw is List
         ? mediaRaw.map((item) => item.toString()).where((item) => item.trim().isNotEmpty).toList(growable: false)
-        : const <String>[];
+        : (mediaRaw != null && mediaRaw.toString().isNotEmpty ? [mediaRaw.toString()] : const <String>[]);
+        
     final incidentId = _asString(_readValue(json, ['incidentId', 'incident_id']), 'unknown-incident');
     final reportId = _asString(_readValue(json, ['reportId', 'report_id', 'id']), 'unknown-report');
+    final reporterName = _readValue(json, ['reporterName', 'reporter_name'])?.toString();
 
     return ReportData(
       reportId: reportId,
       incidentId: incidentId,
       title: _asString(
         _readValue(json, ['title']),
-        '$disasterType Report',
+        reporterName != null ? 'Report from $reporterName' : '$disasterType Report',
       ),
       disasterType: disasterType,
       severity: _asString(_readValue(json, ['severity']), 'LOW'),
@@ -520,9 +524,9 @@ class ReportData {
       ),
       reportedAt: _asDateTime(_readValue(json, ['reportedAt', 'reported_at', 'createdAt', 'created_at'])),
       updatedAt: _asDateTime(_readValue(json, ['updatedAt', 'updated_at'])),
-      assignedAt: _asDateTime(_readValue(json, ['assignedAt', 'assigned_at', 'createdAt', 'created_at'])),
+      assignedAt: _asDateTime(_readValue(json, ['assignedAt', 'assigned_at'])),
       source: source,
-      contact: _readValue(json, ['contact'])?.toString(),
+      contact: _asString(_readValue(json, ['contact', 'contact_info'])),
       mediaUrls: mediaUrls,
       verificationStatus: verificationStatus,
       sosId: _readValue(json, ['sosId', 'sos_id'])?.toString(),
@@ -532,9 +536,11 @@ class ReportData {
       reviewedAt: _readValue(json, ['reviewedAt', 'reviewed_at']) != null
           ? _asDateTime(_readValue(json, ['reviewedAt', 'reviewed_at']))
           : null,
+      reporterName: reporterName,
     );
   }
 }
+
 
 class LocationData {
   final double latitude;
