@@ -125,12 +125,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         (card) => Padding(
                           padding: const EdgeInsets.only(bottom: 16),
                           child: _buildAlertCard(
-                            severity: card.severity,
-                            icon: card.icon,
-                            title: card.title,
-                            description: card.description,
-                            timestamp: card.timestamp,
-                            metaItems: card.metaItems,
+                            config: card,
                           ),
                         ),
                       )
@@ -235,20 +230,15 @@ class _AlertsScreenState extends State<AlertsScreen> {
   // ═══════════════════════════════════════
   //  ALERT CARD (Critical / High)
   // ═══════════════════════════════════════
-  void _showAlertDetails({
-    required String title,
-    required String description,
-    required AlertSeverity severity,
-    required List<_AlertMeta> metaItems,
-    required String timestamp,
-  }) {
-    final bool isCritical = severity == AlertSeverity.critical;
+  void _showAlertDetails(_AlertCardConfig config) {
+    final bool isCritical = config.severity == AlertSeverity.critical;
     final Color accentColor = isCritical ? AppColors.error : const Color(0xFFDF7412);
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF10131A),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: accentColor.withValues(alpha: 0.5), width: 2),
@@ -259,7 +249,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                title,
+                config.title,
                 style: GoogleFonts.inter(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -269,63 +259,82 @@ class _AlertsScreenState extends State<AlertsScreen> {
             ),
           ],
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  severity.name.toUpperCase(),
-                  style: GoogleFonts.spaceGrotesk(
-                    color: accentColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                description,
-                style: GoogleFonts.inter(
-                  color: const Color(0xFF9CA3AF),
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Divider(color: Colors.white10),
-              const SizedBox(height: 12),
-              ...metaItems.map((meta) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(meta.icon, size: 16, color: accentColor),
-                    const SizedBox(width: 8),
-                    Text(
-                      meta.label,
-                      style: GoogleFonts.spaceGrotesk(
-                        color: Colors.white70,
-                        fontSize: 12,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        config.rawSeverity,
+                        style: GoogleFonts.spaceGrotesk(
+                          color: accentColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: config.status == 'ACTIVE' ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        config.status,
+                        style: GoogleFonts.spaceGrotesk(
+                          color: config.status == 'ACTIVE' ? Colors.greenAccent : Colors.grey,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              )),
-              const SizedBox(height: 8),
-              Text(
-                'Issued at: $timestamp',
-                style: GoogleFonts.spaceGrotesk(
-                  color: Colors.white30,
-                  fontSize: 10,
+                const SizedBox(height: 16),
+                Text(
+                  'Alert ID: ${config.id}',
+                  style: GoogleFonts.spaceGrotesk(
+                    color: Colors.white30,
+                    fontSize: 10,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Text(
+                  config.description,
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFF9CA3AF),
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Divider(color: Colors.white10),
+                const SizedBox(height: 12),
+                _buildDetailRow(Icons.category_outlined, 'Type', config.type, accentColor),
+                _buildDetailRow(Icons.public, 'Scope', config.isPublic ? 'PUBLIC' : 'INTERNAL', accentColor),
+                ...config.metaItems.map((meta) => _buildDetailRow(meta.icon, 'Info', meta.label, accentColor)),
+                const SizedBox(height: 12),
+                Text(
+                  'Created At: ${config.timestamp}',
+                  style: GoogleFonts.spaceGrotesk(
+                    color: Colors.white30,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -344,34 +353,45 @@ class _AlertsScreenState extends State<AlertsScreen> {
     );
   }
 
-  Widget _buildAlertCard({
-    required AlertSeverity severity,
-    required IconData icon,
-    required String title,
-    required String description,
-    required String timestamp,
-    required List<_AlertMeta> metaItems,
-  }) {
-    final bool isCritical = severity == AlertSeverity.critical;
+  Widget _buildDetailRow(IconData icon, String label, String value, Color accent) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: accent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: GoogleFonts.inter(fontSize: 13),
+                children: [
+                  TextSpan(text: '$label: ', style: const TextStyle(color: Colors.white54)),
+                  TextSpan(text: value, style: const TextStyle(color: Colors.white)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlertCard({required _AlertCardConfig config}) {
+    final bool isCritical = config.severity == AlertSeverity.critical;
     final Color accentColor =
-        isCritical ? AppColors.error : const Color(0xFFDF7412); // tertiary-container
+        isCritical ? AppColors.error : const Color(0xFFDF7412);
     final List<BoxShadow> glow = [
       BoxShadow(
         color: isCritical
-            ? const Color(0x33EF4444) // red glow
-            : const Color(0x33F59E0B), // amber glow
+            ? const Color(0x33EF4444)
+            : const Color(0x33F59E0B),
         blurRadius: 15,
       ),
     ];
 
     return InkWell(
-      onTap: () => _showAlertDetails(
-        title: title,
-        description: description,
-        severity: severity,
-        metaItems: metaItems,
-        timestamp: timestamp,
-      ),
+      onTap: () => _showAlertDetails(config),
       borderRadius: BorderRadius.circular(4),
       child: Container(
         clipBehavior: Clip.antiAlias,
@@ -384,12 +404,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Top accent border
             Container(height: 2, color: accentColor),
-
             Stack(
               children: [
-                // Corner decoration (critical only)
                 if (isCritical)
                   Positioned(
                     top: -32,
@@ -403,19 +420,17 @@ class _AlertsScreenState extends State<AlertsScreen> {
                       ),
                     ),
                   ),
-
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ── Header row: icon + badge + timestamp ──
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
                             children: [
-                              Icon(icon, color: accentColor, size: 20),
+                              Icon(config.icon, color: accentColor, size: 20),
                               const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
@@ -425,7 +440,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                                 child: Text(
-                                  isCritical ? 'CRITICAL' : 'HIGH',
+                                  config.rawSeverity,
                                   style: GoogleFonts.spaceGrotesk(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -437,20 +452,18 @@ class _AlertsScreenState extends State<AlertsScreen> {
                             ],
                           ),
                           Text(
-                            timestamp,
+                            config.status,
                             style: GoogleFonts.spaceGrotesk(
                               fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.onSurfaceVariant,
+                              fontWeight: FontWeight.bold,
+                              color: config.status == 'ACTIVE' ? Colors.greenAccent : Colors.grey,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
-
-                      // ── Title ──
                       Text(
-                        title,
+                        config.title,
                         style: GoogleFonts.inter(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -459,10 +472,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-
-                      // ── Description ──
                       Text(
-                        description,
+                        config.description,
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(
@@ -473,58 +484,28 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-
-                      // ── Footer: meta + view details ──
                       Container(
                         padding: const EdgeInsets.only(top: 12),
                         decoration: const BoxDecoration(
-                          border: Border(
-                            top: BorderSide(
-                              color: Colors.white10,
-                            ),
-                          ),
+                          border: Border(top: BorderSide(color: Colors.white10)),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            // Meta items
                             Expanded(
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: metaItems
-                                      .map(
-                                        (m) => Padding(
-                                          padding: const EdgeInsets.only(right: 16),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(m.icon,
-                                                  size: 14,
-                                                  color: AppColors.onSurfaceVariant),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                m.label,
-                                                style: GoogleFonts.spaceGrotesk(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: AppColors.onSurfaceVariant,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
+                              child: Text(
+                                config.timestamp,
+                                style: GoogleFonts.spaceGrotesk(
+                                  fontSize: 11,
+                                  color: AppColors.onSurfaceVariant,
                                 ),
                               ),
                             ),
-                            // View Details link
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'VIEW DETAILS',
+                                  'DETAILS',
                                   style: GoogleFonts.spaceGrotesk(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -533,8 +514,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 2),
-                                Icon(Icons.chevron_right,
-                                    size: 14, color: accentColor),
+                                Icon(Icons.chevron_right, size: 14, color: accentColor),
                               ],
                             ),
                           ],
@@ -564,36 +544,52 @@ class _AlertMeta {
 }
 
 class _AlertCardConfig {
+  final String id;
   final AlertSeverity severity;
+  final String rawSeverity;
   final IconData icon;
   final String title;
   final String description;
   final String timestamp;
+  final String status;
+  final String type;
+  final bool isPublic;
   final List<_AlertMeta> metaItems;
 
   const _AlertCardConfig({
+    required this.id,
     required this.severity,
+    required this.rawSeverity,
     required this.icon,
     required this.title,
     required this.description,
     required this.timestamp,
+    required this.status,
+    required this.type,
+    required this.isPublic,
     required this.metaItems,
   });
 }
 
 _AlertCardConfig _alertCardFromData(AlertData alert) {
-  final severity = alert.severity.toUpperCase() == 'CRITICAL'
+  final rawSeverity = alert.severity.toUpperCase();
+  final severity = rawSeverity == 'CRITICAL'
       ? AlertSeverity.critical
-      : AlertSeverity.high;
+      : (rawSeverity == 'HIGH' ? AlertSeverity.high : AlertSeverity.routine);
   final icon = _iconForAlertType(alert.type);
   final timestamp = alert.createdAt.toUtc().toIso8601String().split('.').first.replaceFirst('T', ' ');
 
   return _AlertCardConfig(
+    id: alert.id,
     severity: severity,
+    rawSeverity: rawSeverity,
     icon: icon,
     title: alert.title,
     description: alert.description ?? 'No description provided',
     timestamp: '${timestamp}Z',
+    status: alert.isActive ? 'ACTIVE' : 'INACTIVE',
+    type: alert.type,
+    isPublic: alert.isPublic,
     metaItems: [
       _AlertMeta(icon: Icons.location_on, label: alert.district),
       if (alert.source != null && alert.source!.isNotEmpty)

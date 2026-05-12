@@ -368,24 +368,33 @@ class AlertData {
   });
 
   factory AlertData.fromJson(Map<String, dynamic> json) {
+    // Handle differences between Alert and PublicAlert tables
+    final id = _asString(_readValue(json, ['alert_id', 'id']), 'unknown-alert');
+    final title = _asString(_readValue(json, ['title']), 'Untitled Alert');
+    final description = _readValue(json, ['message', 'description'])?.toString();
+    final severity = _asString(_readValue(json, ['severity_level', 'severity']), 'LOW');
+    final statusText = _asString(_readValue(json, ['status']), 'ACTIVE').toUpperCase();
+    final isActive = _asBool(_readValue(json, ['isActive', 'is_active']), statusText == 'ACTIVE');
+    final createdAt = _asDateTime(_readValue(json, ['issued_at', 'createdAt', 'created_at']));
     final scope = _asString(_readValue(json, ['scope']), 'all').toLowerCase();
-    final isPublic = _asBool(_readValue(json, ['isPublic', 'is_public']), scope == 'citizen');
+    final isPublic = _asBool(_readValue(json, ['isPublic', 'is_public']), scope == 'citizen' || json.containsKey('alert_id'));
+    
     return AlertData(
-      id: _asString(_readValue(json, ['id']), 'unknown-alert'),
+      id: id,
       scope: scope,
-      type: _asString(_readValue(json, ['type', 'alertType', 'alert_type']), 'UNKNOWN'),
-      severity: _asString(_readValue(json, ['severity']), 'LOW'),
-      title: _asString(_readValue(json, ['title']), 'Untitled Alert'),
-      description: _readValue(json, ['description'])?.toString(),
-      district: _asString(_readValue(json, ['district']), ''),
+      type: _asString(_readValue(json, ['type', 'alertType', 'alert_type']), 'GENERAL'),
+      severity: severity,
+      title: title,
+      description: description,
+      district: _asString(_readValue(json, ['district']), 'ALL'),
       isPublic: isPublic,
-      isActive: _asBool(_readValue(json, ['isActive', 'is_active']), _asString(_readValue(json, ['status']), 'ACTIVE').toUpperCase() != 'RESOLVED'),
+      isActive: isActive,
       source: _readValue(json, ['source'])?.toString(),
-      createdAt: _asDateTime(_readValue(json, ['createdAt', 'created_at'])),
+      createdAt: createdAt,
       expiresAt: _readValue(json, ['expiresAt', 'expires_at']) != null
           ? _asDateTime(_readValue(json, ['expiresAt', 'expires_at']))
           : null,
-      incidentId: _readValue(json, ['incidentId', 'incident_id'])?.toString(),
+      incidentId: _readValue(json, ['incident_id', 'incidentId', 'incidentId'])?.toString(),
     );
   }
 }

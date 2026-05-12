@@ -188,6 +188,8 @@ export async function getAssignedIncidents(userId: string, filters: AssignmentFi
   return Promise.all(incidentRows)
 }
 
+import { getAlerts as fetchAlertsFromService } from './alert.service'
+
 export async function getAssignmentAlerts(userId: string, scope: 'citizen' | 'internal' | 'all' = 'all') {
   const officerAssignments = await getOfficerAssignmentRows(userId)
   const districts = Array.from(
@@ -198,62 +200,13 @@ export async function getAssignmentAlerts(userId: string, scope: 'citizen' | 'in
     )
   )
 
-  let alertQuery = supabase
-    .from('Alert')
-    .select('id, type, severity, title, description, district, isPublic, isActive, createdAt, expiresAt, incidentId, source')
-    .eq('isActive', true)
-    .order('createdAt', { ascending: false })
+  const alerts = await fetchAlertsFromService(districts)
 
-  if (scope === 'citizen') {
-    alertQuery = alertQuery.eq('isPublic', true)
-  } else if (scope === 'internal') {
-    alertQuery = alertQuery.eq('isPublic', false)
-  }
-
-  if (districts.length > 0) {
-    alertQuery = alertQuery.in('district', districts)
-  }
-
-  const publicAlertQuery = supabase
-    .from('PublicAlert')
-    .select('alert_id, incident_id, title, message, severity_level, status, issued_at')
-    .order('issued_at', { ascending: false })
-
-  const [{ data: alerts, error: alertError }, { data: publicAlerts, error: publicAlertError }] = await Promise.all([
-    alertQuery,
-    publicAlertQuery,
-  ])
-
-  if (alertError) {
-    throw alertError
-  }
-
-  if (publicAlertError) {
-    throw publicAlertError
-  }
-
-  return [
-    ...(alerts ?? []).map((alert) => ({
-      id: alert.id,
-      scope: alert.isPublic ? 'citizen' : 'internal',
-      title: alert.title,
-      severity: alert.severity,
-      status: alert.isActive ? 'ACTIVE' : 'INACTIVE',
-      district: alert.district,
-      createdAt: alert.createdAt,
-      incidentId: alert.incidentId ?? null,
-    })),
-    ...(publicAlerts ?? []).map((alert) => ({
-      id: alert.alert_id,
-      scope: 'citizen',
-      title: alert.title,
-      severity: alert.severity_level,
-      status: alert.status,
-      district: districts[0] ?? null,
-      issuedAt: alert.issued_at,
-      incidentId: alert.incident_id ?? null,
-    })),
-  ]
+  return alerts.filter(alert => {
+    if (scope === 'citizen') return alert.isPublic === true
+    if (scope === 'internal') return alert.isPublic === false
+    return true
+  })
 }
 
 export async function getAssignedResources(userId: string) {
