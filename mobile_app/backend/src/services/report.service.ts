@@ -2,153 +2,131 @@ import { supabase } from '@/lib/supabase'
 import { toNumber } from './assignment.service'
 
 export async function getAssignedReports(userId: string) {
-  // Fetch latest 20 reports globally so the dashboard always has data
-  const { data, error } = await supabase
-    .from('IncidentReport')
-    .select(
-      'report_id, incident_id, assigned_to, title, description, status, acknowledged, acknowledged_at, created_at, updated_at'
-    )
-    .order('created_at', { ascending: false })
-    .limit(20)
-
-  if (error) {
-    console.error('[report.service] getAssignedReports failed', {
-      userId,
-      code: error.code,
-      message: error.message,
-    })
-    throw error
-  }
-
-  const incidentIds = Array.from(
-    new Set((data ?? []).map((row) => row.incident_id).filter(Boolean))
-  )
-
-  const { data: incidentsData } = await supabase
-    .from('ConfirmedIncident')
-    .select('id, disasterType, district')
-    .in('id', incidentIds)
-
-  const incidentMapById = (incidentsData ?? []).reduce((acc, incident) => {
-    acc[incident.id] = incident
-    return acc
-  }, {} as Record<string, any>)
-
-  // We also want to know if the user is assigned to the incident
-  const { data: assignmentRows } = await supabase
+  // Get assignments for the officer
+  const { data: assignments, error: assignmentError } = await supabase
     .from('PersonnelAssignment')
-    .select('incident_id, assigned_at, assigned_role')
+    .select(`
+      assignment_id,
+      incident_id,
+      assigned_role,
+      status,
+      assigned_at,
+      notes,
+      ConfirmedIncident:incident_id (
+        id,
+        title,
+        disasterType,
+        district,
+        severity,
+        status,
+        latitude,
+        longitude,
+        description,
+        publicVisibility,
+        affectedPeople,
+        createdAt,
+        updatedAt
+      )
+    `)
     .eq('user_id', userId)
-    .in('incident_id', incidentIds)
-
-  const assignmentMap = (assignmentRows ?? []).reduce((acc, row) => {
-    acc[row.incident_id] = row
-    return acc
-  }, {} as Record<string, any>)
-
-  return (data ?? []).map((report) => {
-    const assignment = assignmentMap[report.incident_id]
-    const incident = incidentMapById[report.incident_id]
-    return {
-      reportId: report.report_id.toString(),
-      id: report.report_id.toString(),
-      source: 'incident_report',
-      reporterName: report.title || 'Field Report',
-      contact: null,
-      description: report.description,
-      mediaUrls: [],
-      status: report.status,
-      verificationStatus: report.status,
-      createdAt: report.created_at,
-      updatedAt: report.updated_at,
-      incidentId: report.incident_id,
-      latitude: null,
-      longitude: null,
-      assignedAt: assignment?.assigned_at,
-      assignedRole: assignment?.assigned_role,
-      disasterType: incident?.disasterType || 'PENDING',
-      district: incident?.district || 'UNCATEGORIZED',
-    }
-  })
-}
-
-export async function getReportById(userId: string, reportId: string) {
-  const { data, error } = await supabase
-    .from('IncidentReport')
-    .select(
-      'report_id, incident_id, assigned_to, title, description, status, acknowledged, acknowledged_at, created_at, updated_at'
-    )
-    .eq('report_id', reportId)
-    .maybeSingle()
-
-  if (error) {
-    console.error('[report.service] getReportById failed', {
-      userId,
-      reportId,
-      code: error.code,
-      message: error.message,
-    })
-    throw error
-  }
-
-  if (!data) {
-    return null
-  }
-
-  const incidentId = data.incident_id
-  if (!incidentId) {
-    return null
-  }
-
-  const { data: assignmentRow, error: assignmentError } = await supabase
-    .from('PersonnelAssignment')
-    .select('assignment_id, assigned_at, assigned_role')
-    .eq('user_id', userId)
-    .eq('incident_id', incidentId)
-    .maybeSingle()
+    .order('assigned_at', { ascending: false })
 
   if (assignmentError) {
-    console.error('[report.service] report access check failed', {
+    console.error('[report.service] getAssignedReports failed', {
       userId,
-      reportId,
-      incidentId,
       code: assignmentError.code,
       message: assignmentError.message,
     })
     throw assignmentError
   }
 
-  if (!assignmentRow) {
+  return (assignments ?? []).map((row: any) => {
+    const incident = row.ConfirmedIncident
+    return {
+      reportId: row.assignment_id,
+      id: row.assignment_id,
+      source: 'personnel_assignment',
+      reporterName: incident?.title || 'Unknown Incident',
+      contact: null,
+      description: row.notes || incident?.description || '',
+      mediaUrls: [],
+      status: row.status, // Assignment status (ASSIGNED, EN_ROUTE, etc.)
+      verificationStatus: incident?.status || 'ACTIVE', // Incident status
+      createdAt: row.assigned_at,
+      updatedAt: incident?.updatedAt || row.assigned_at,
+      incidentId: row.incident_id,
+      latitude: incident?.latitude || null,
+      longitude: incident?.longitude || null,
+      assignedAt: row.assigned_at,
+      assignedRole: row.assigned_role,
+      disasterType: incident?.disasterType || 'UNKNOWN',
+      district: incident?.district || 'UNKNOWN',
+    }
+  })
+}
+
+export async function getReportById(userId: string, reportId: string) {
+  const { data: assignment, error: assignmentError } = await supabase
+    .from('PersonnelAssignment')
+    .select(`
+      assignment_id,
+      incident_id,
+      assigned_role,
+      status,
+      assigned_at,
+      notes,
+      ConfirmedIncident:incident_id (
+        id,
+        title,
+        disasterType,
+        district,
+        severity,
+        status,
+        latitude,
+        longitude,
+        description,
+        publicVisibility,
+        affectedPeople,
+        createdAt,
+        updatedAt
+      )
+    `)
+    .eq('assignment_id', reportId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (assignmentError) {
+    console.error('[report.service] getReportById failed', {
+      userId,
+      reportId,
+      code: assignmentError.code,
+      message: assignmentError.message,
+    })
+    throw assignmentError
+  }
+
+  if (!assignment) {
     return null
   }
 
-  let incident = null
-  if (incidentId) {
-    const { data: incidentData } = await supabase
-      .from('ConfirmedIncident')
-      .select('disasterType, district')
-      .eq('id', incidentId)
-      .maybeSingle()
-    incident = incidentData
-  }
-
+  const incident: any = assignment.ConfirmedIncident
   return {
-    reportId: data.report_id.toString(),
-    id: data.report_id.toString(),
-    source: 'incident_report',
-    reporterName: 'Field Officer',
+    reportId: assignment.assignment_id,
+    id: assignment.assignment_id,
+    source: 'personnel_assignment',
+    reporterName: incident?.title || 'Unknown Incident',
     contact: null,
-    description: data.description,
+    description: assignment.notes || incident?.description || '',
     mediaUrls: [],
-    status: data.status,
-    verificationStatus: data.status,
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-    incidentId: data.incident_id,
-    latitude: null,
-    longitude: null,
-    assignedAt: assignmentRow.assigned_at,
-    assignedRole: assignmentRow.assigned_role,
+    status: assignment.status,
+    verificationStatus: incident?.status || 'ACTIVE',
+    createdAt: assignment.assigned_at,
+    updatedAt: incident?.updatedAt || assignment.assigned_at,
+    incidentId: assignment.incident_id,
+    latitude: incident?.latitude || null,
+    longitude: incident?.longitude || null,
+    assignedAt: assignment.assigned_at,
+    assignedRole: assignment.assigned_role,
     disasterType: incident?.disasterType || 'UNKNOWN',
     district: incident?.district || 'UNKNOWN',
   }
@@ -156,38 +134,15 @@ export async function getReportById(userId: string, reportId: string) {
 
 
 export async function acknowledgeReport(userId: string, reportId: string) {
-  // We need to verify if the user is assigned to the incident this report belongs to
-  const { data: report, error: reportError } = await supabase
-    .from('IncidentReport')
-    .select('incident_id')
-    .eq('report_id', reportId)
-    .maybeSingle()
-
-  if (reportError || !report) {
-    return null
-  }
-
-  const { data: assignment, error: assignmentError } = await supabase
-    .from('PersonnelAssignment')
-    .select('assignment_id')
-    .eq('user_id', userId)
-    .eq('incident_id', report.incident_id)
-    .maybeSingle()
-
-  if (assignmentError || !assignment) {
-    return null
-  }
-
+  // Update the assignment status to 'EN_ROUTE' to indicate acknowledgment/start of response
   const { data, error } = await supabase
-    .from('IncidentReport')
+    .from('PersonnelAssignment')
     .update({
-      status: 'ACKNOWLEDGED',
-      acknowledged: true,
-      acknowledged_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      status: 'EN_ROUTE',
     })
-    .eq('report_id', reportId)
-    .select('report_id, updated_at')
+    .eq('assignment_id', reportId)
+    .eq('user_id', userId)
+    .select('assignment_id, status')
     .maybeSingle()
 
   if (error) {
@@ -205,8 +160,9 @@ export async function acknowledgeReport(userId: string, reportId: string) {
   }
 
   return {
-    reportId: data.report_id.toString(),
-    acknowledgedAt: data.updated_at,
+    reportId: data.assignment_id,
+    status: data.status,
+    acknowledgedAt: new Date().toISOString(),
   }
 }
 
