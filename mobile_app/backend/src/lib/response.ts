@@ -17,8 +17,8 @@ export function jsonForbidden() {
   return NextResponse.json({ error: 'Access denied' }, { status: 403 })
 }
 
-export function jsonNotFound() {
-  return NextResponse.json({ error: 'Resource not found' }, { status: 404 })
+export function jsonNotFound(message = 'Resource not found') {
+  return NextResponse.json({ error: message }, { status: 404 })
 }
 
 export function jsonValidationError(details: ValidationIssue[]) {
