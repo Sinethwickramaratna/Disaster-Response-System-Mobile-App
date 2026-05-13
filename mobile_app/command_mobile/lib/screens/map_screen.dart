@@ -210,7 +210,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     _loadSheltersAndReports();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _showCurrentLocation) {
-        _loadCurrentLocation(recenter: false);
+        _loadCurrentLocation(recenter: true);
       }
     });
   }
@@ -442,7 +442,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         ),
         centerTitle: true,
         title: Text(
-          'COMMAND',
+          'DMC SRI LANKA',
           style: GoogleFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w900,

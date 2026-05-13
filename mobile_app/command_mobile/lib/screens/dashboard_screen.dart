@@ -86,7 +86,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     try {
-      alerts = await AssignmentService.fetchAlerts(scope: 'all');
+      final results = await Future.wait([
+        AssignmentService.fetchAlerts(scope: 'internal'),
+        AssignmentService.fetchAlerts(scope: 'citizen'),
+      ]);
+
+      final merged = <String, AlertData>{};
+      for (final list in results) {
+        for (final a in list) {
+          merged[a.id] = a;
+        }
+      }
+
+      alerts = merged.values.toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     } catch (e) {
       print('[Dashboard] Warning: failed to fetch alerts: $e');
     }
@@ -173,7 +185,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         centerTitle: true,
         title: Text(
-          'COMMAND',
+          'DMC SRI LANKA',
           style: GoogleFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w900,
@@ -182,7 +194,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         actions: [
-        const NotificationButton(),
+          IconButton(
+            icon: const Icon(Icons.notifications_active_outlined, color: Colors.blueAccent),
+            onPressed: () {
+              NotificationService.instance.showLocalNotification(
+                title: 'System Test',
+                body: 'The notification system is active and ready.',
+              );
+            },
+            tooltip: 'Test Notification',
+          ),
+          const NotificationButton(),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -352,7 +374,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 title: AuthService.currentUser?.role == 'LOGISTICS_STAFF' 
                     ? 'ACTIVE DEPLOYMENTS'
                     : 'ACTIVE INCIDENTS',
-                value: '${summaryData?.activeIncidents ?? 0}',
+                value: AuthService.currentUser?.role == 'LOGISTICS_STAFF'
+                    ? '${summaryData?.assignedResources ?? 0}'
+                    : '${summaryData?.activeIncidents ?? 0}',
                 valueColor: Colors.white,
               ),
             ),

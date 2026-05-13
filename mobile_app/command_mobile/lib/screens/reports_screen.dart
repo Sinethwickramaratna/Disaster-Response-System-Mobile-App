@@ -98,7 +98,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ),
         centerTitle: true,
         title: Text(
-          'COMMAND',
+          'DMC SRI LANKA',
           style: GoogleFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w900,

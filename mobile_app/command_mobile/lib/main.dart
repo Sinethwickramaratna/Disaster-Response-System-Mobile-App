@@ -11,9 +11,18 @@ import 'package:command_mobile/services/auth_service.dart';
 
 import 'package:command_mobile/services/notification_service.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
+  
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    print('Firebase initialization failed: $e');
+  }
+
   await AuthService.initializeSession();
 
   final hasToken = await AuthService.hasValidToken();
@@ -35,7 +44,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Disaster Response',
+      title: 'DMC Sri Lanka',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       initialRoute: initialRoute,
@@ -50,5 +59,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-

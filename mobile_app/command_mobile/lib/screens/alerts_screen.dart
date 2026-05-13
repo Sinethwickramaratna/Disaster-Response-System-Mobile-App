@@ -41,7 +41,22 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   Future<void> _refreshAlerts() async {
     try {
-      final alerts = await AssignmentService.fetchAlerts(scope: 'all');
+      final results = await Future.wait([
+        AssignmentService.fetchAlerts(scope: 'internal'),
+        AssignmentService.fetchAlerts(scope: 'citizen'),
+      ]);
+
+      // Merge, dedupe by id and sort by createdAt desc
+      final merged = <String, AlertData>{};
+      for (final list in results) {
+        for (final a in list) {
+          merged[a.id] = a;
+        }
+      }
+
+      final alerts = merged.values.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
       if (!mounted) return;
 
       setState(() {
@@ -80,9 +95,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
         ),
         centerTitle: true,
         title: Text(
-          'COMMAND',
+          'DMC SRI LANKA',
           style: GoogleFonts.inter(
-            fontSize: 13,
+            fontSize: 18,
             fontWeight: FontWeight.w900,
             letterSpacing: 4,
             color: const Color(0xFF4D8EFF),

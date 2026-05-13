@@ -222,7 +222,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
         ),
         centerTitle: true,
         title: Text(
-          'COMMAND',
+          'DMC SRI LANKA',
           style: GoogleFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w900,
@@ -680,22 +680,30 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                   ).then((_) => _refreshResources(ignoreCache: true));
                 },
                 child: Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: cardColor,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: borderColor),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: primaryBlue.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: primaryBlue.withValues(alpha: 0.2)),
                         ),
-                        child: Icon(Icons.inventory_2, color: primaryBlue),
+                        child: Icon(Icons.local_shipping, color: primaryBlue, size: 24),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -703,33 +711,69 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              titleText,
-                              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                              titleText.toUpperCase(),
+                              style: GoogleFonts.spaceGrotesk(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 14,
+                                letterSpacing: 0.5,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Incident: ${resource.incidentId ?? 'N/A'}',
-                              style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(Icons.location_on, color: textSecondary, size: 12),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    resource.incidentId != null && resource.incidentId!.length > 8
+                                        ? '${resource.incidentId!.substring(0, 8)}...'
+                                        : (resource.incidentId ?? 'UNSPECIFIED AO'),
+                                    style: GoogleFonts.inter(
+                                      color: textSecondary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              'Items: $dispatchedCount',
-                              style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
+                            Row(
+                              children: [
+                                Icon(Icons.inventory_2, color: textSecondary, size: 12),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$dispatchedCount ITEMS DISPATCHED',
+                                  style: GoogleFonts.spaceGrotesk(
+                                    color: primaryBlue.withValues(alpha: 0.7),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: badgeColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
+                          color: badgeColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
                         ),
                         child: Text(
                           status,
-                          style: GoogleFonts.inter(color: badgeColor, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                          style: GoogleFonts.spaceGrotesk(
+                            color: badgeColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
                     ],
