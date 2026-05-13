@@ -7,6 +7,7 @@ import 'package:command_mobile/services/assignment_service.dart';
 import 'package:command_mobile/services/socket_service.dart';
 import 'package:command_mobile/services/notification_service.dart';
 import 'package:command_mobile/components/notification_button.dart';
+import 'package:command_mobile/services/auth_service.dart';
 import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {

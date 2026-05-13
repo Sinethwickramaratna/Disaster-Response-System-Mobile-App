@@ -60,7 +60,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (user.role !== 'FIELD_OFFICER' && user.role !== 'RESPONSE_TEAM_MEMBER') {
+    if (
+      user.role !== 'FIELD_OFFICER' &&
+      user.role !== 'RESPONSE_TEAM_MEMBER' &&
+      user.role !== 'LOGISTICS_STAFF'
+    ) {
       return jsonForbidden()
     }
 

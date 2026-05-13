@@ -287,6 +287,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                     child: _buildCapacityCards(),
                   ),
                   const SizedBox(height: 24),
+                  if (AuthService.currentUser?.role == 'FIELD_OFFICER') ...[
                     _buildRequestedResources(),
                     const SizedBox(height: 24),
                     _buildAssignedResources(),
