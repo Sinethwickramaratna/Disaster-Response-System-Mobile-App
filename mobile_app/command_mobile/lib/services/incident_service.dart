@@ -40,6 +40,7 @@ class IncidentService {
       IncidentStatus.onTheWay => 'EN_ROUTE',
       IncidentStatus.reached => 'ON_SITE',
       IncidentStatus.verified => 'ACTIVE',
+      IncidentStatus.inProgress => 'UNDER_RESPONSE',
       IncidentStatus.resolved => 'RESOLVED',
       IncidentStatus.closed => 'CLOSED',
       _ => 'ACTIVE',
@@ -147,6 +148,7 @@ class IncidentService {
       case 'ACTIVE':
         return IncidentStatus.assigned;
       case 'UNDER_RESPONSE':
+      case 'UNDER_PROGRESS':
         return IncidentStatus.inProgress;
       case 'RESOLVED':
         return IncidentStatus.resolved;

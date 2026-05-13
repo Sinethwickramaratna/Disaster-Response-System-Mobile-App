@@ -85,7 +85,7 @@ export async function getIncidentDetail(userId: string, incidentId: string) {
   const [{ data: incident, error: incidentError }, { data: alerts, error: alertsError }, { data: deployments, error: deploymentsError }] = await Promise.all([
     supabase
       .from('ConfirmedIncident')
-      .select('id, title, disasterType, district, severity, status, latitude, longitude, description, publicVisibility, affectedPeople, createdAt, updatedAt')
+      .select('*')
       .eq('id', incidentId)
       .maybeSingle(),
     supabase
@@ -117,19 +117,24 @@ export async function getIncidentDetail(userId: string, incidentId: string) {
     return null
   }
 
+  // Handle flexible field names for display
+  const affectedPopulation = incident.affectedPeople ?? incident.affected_population ?? incident.affectedPeopleCount ?? 0;
+  const status = incident.status;
+  const severity = incident.severity;
+
   return {
     incidentId: incident.id,
     title: incident.title,
-    severity: incident.severity,
-    status: incident.status,
-    affectedPopulation: incident.affectedPeople,
+    severity: severity,
+    status: status,
+    affectedPopulation: affectedPopulation,
     description: incident.description,
     location: {
       latitude: incident.latitude,
       longitude: incident.longitude,
     },
     division: {
-      divisionId: null,
+      divisionId: incident.division_id,
       divisionName: incident.district,
       district: incident.district,
       province: null,
@@ -149,7 +154,7 @@ export async function getIncidentDetail(userId: string, incidentId: string) {
 export async function getAssignedIncidentList(userId: string) {
   const { data, error } = await supabase
     .from('PersonnelAssignment')
-    .select('incident_id, status, assigned_at, ConfirmedIncident:incident_id (id, title, severity, status, latitude, longitude)')
+    .select('incident_id, status, assigned_at, ConfirmedIncident:incident_id (*)')
     .eq('user_id', userId)
     .order('assigned_at', { ascending: false })
 
@@ -159,14 +164,19 @@ export async function getAssignedIncidentList(userId: string) {
 
   return ((data ?? []) as IncidentAssignmentRow[])
     .filter((row) => unwrapRelation(row.ConfirmedIncident))
-    .map((row) => ({
-      incidentId: unwrapRelation(row.ConfirmedIncident)!.id,
-      title: unwrapRelation(row.ConfirmedIncident)!.title,
-      severity: unwrapRelation(row.ConfirmedIncident)!.severity,
-      status: unwrapRelation(row.ConfirmedIncident)!.status,
-      latitude: unwrapRelation(row.ConfirmedIncident)!.latitude,
-      longitude: unwrapRelation(row.ConfirmedIncident)!.longitude,
-    }))
+    .map((row) => {
+      const inc = unwrapRelation(row.ConfirmedIncident)!;
+      return {
+        incidentId: inc.id,
+        title: inc.title,
+        severity: inc.severity,
+        status: inc.status,
+        latitude: inc.latitude,
+        longitude: inc.longitude,
+        description: inc.description,
+        createdAt: inc.createdAt || (inc as any).created_at,
+      }
+    })
 }
 
 export async function updateIncident(
@@ -179,9 +189,9 @@ export async function updateIncident(
     severity?: string
   }
 ) {
-  console.log('[incident.service] updateIncident:', { userId, incidentId, updates })
+  console.log('[incident.service] updateIncident start:', { userId, incidentId, updates })
 
-  // 1. Verify authorization
+  // 1. Verify authorization (Officer must be assigned)
   const { data: assignment, error: assignmentError } = await supabase
     .from('PersonnelAssignment')
     .select('assignment_id, incident_id, status')
@@ -189,107 +199,110 @@ export async function updateIncident(
     .eq('incident_id', incidentId)
     .maybeSingle()
 
-  if (assignmentError) {
-    console.error('[incident.service] Assignment check error:', assignmentError)
-    throw assignmentError
-  }
+  if (assignmentError) throw assignmentError
+  if (!assignment) throw new Error('Unauthorized: User is not assigned to this incident')
 
-  if (!assignment) {
-    console.warn('[incident.service] Unauthorized update attempt or invalid ID:', { userId, incidentId })
-    throw new Error('Unauthorized: User is not assigned to this incident')
-  }
+  // 2. Prepare normalization for Enums
+  const rawStatus = updates.status?.trim().toUpperCase().replace('-', '_') || ''
+  const rawSeverity = updates.severity?.trim().toUpperCase() || ''
+  
+  // Personnel-specific statuses (EN_ROUTE, ON_SITE, etc.)
+  const personnelStatuses = ['ASSIGNED', 'EN_ROUTE', 'ON_SITE', 'RELEASED', 'ATTHEINCIDENT']
+  
+  // Incident-level statuses (The only ones allowed for ConfirmedIncident)
+  const allowedIncidentStatuses = ['ACTIVE', 'UNDER_RESPONSE', 'RESOLVED', 'CLOSED']
 
   let finalResult: any = null
 
-  // 2. Handle status updates
-  if (updates.status) {
-    const rawStatus = updates.status.trim().toUpperCase().replace('-', '_')
-    const personnelStatuses = ['ASSIGNED', 'EN_ROUTE', 'ON_SITE', 'RELEASED', 'ATTHEINCIDENT']
-    
+  // 3. Execution Block
+  try {
+    // --- Update PersonnelAssignment Status if applicable ---
     if (personnelStatuses.includes(rawStatus)) {
-      // Map legacy/app strings to DB check constraint values
-      let dbStatus = rawStatus
-      if (dbStatus === 'ATTHEINCIDENT') dbStatus = 'ON_SITE'
+      let dbPersonnelStatus = rawStatus === 'ATTHEINCIDENT' ? 'ON_SITE' : rawStatus
+      console.log(`[incident.service] Updating PersonnelAssignment status to: ${dbPersonnelStatus}`)
       
-      console.log(`[incident.service] Updating PersonnelAssignment status to ${dbStatus}`)
       const { data, error } = await supabase
         .from('PersonnelAssignment')
-        .update({ status: dbStatus })
+        .update({ status: dbPersonnelStatus })
         .eq('user_id', userId)
         .eq('incident_id', incidentId)
         .select()
         .single()
-        
-      if (error) {
-        console.error('[incident.service] PersonnelAssignment status update failed:', error)
-        throw error
-      }
+      
+      if (error) throw error
       finalResult = data
-    } else {
-      // It's an incident-level status update (e.g. ACTIVE, CLOSED, RESOLVED)
-      // Check if user has permission to update incident-level status
-      // (For now, we allow if they are assigned, but ideally we'd check roles)
+    }
+
+    // --- Update ConfirmedIncident Fields ---
+    const incidentPayload: any = { updatedAt: new Date().toISOString() }
+    let hasIncidentUpdates = false
+
+    if (updates.description !== undefined) {
+      incidentPayload.description = updates.description
+      hasIncidentUpdates = true
+    }
+
+    // Handle Severity (normalize to common values)
+    if (rawSeverity) {
+      let dbSeverity = rawSeverity
+      if (dbSeverity === 'MODERATE') dbSeverity = 'MEDIUM'
+      incidentPayload.severity = dbSeverity
+      hasIncidentUpdates = true
+    }
+
+    // Handle Incident Status (only if it matches the allowed list)
+    if (allowedIncidentStatuses.includes(rawStatus)) {
+      incidentPayload.status = rawStatus
+      hasIncidentUpdates = true
+    }
+
+    // Handle Affected People (try different column name variants)
+    if (updates.affectedPeople !== undefined) {
+      incidentPayload.affectedPeople = updates.affectedPeople
+      hasIncidentUpdates = true
+    }
+
+    if (hasIncidentUpdates) {
+      console.log('[incident.service] Updating ConfirmedIncident:', incidentPayload)
+      
       const { data, error } = await supabase
         .from('ConfirmedIncident')
-        .update({ status: rawStatus, updatedAt: new Date().toISOString() })
+        .update(incidentPayload)
         .eq('id', incidentId)
         .select()
         .single()
-        
+
       if (error) {
-        console.error('[incident.service] ConfirmedIncident status update failed:', error)
-        throw error
-      }
-      finalResult = data
-    }
-  }
-
-  // 3. Handle other incident-level fields (description, affected people, severity)
-  if (updates.description !== undefined || updates.affectedPeople !== undefined || updates.severity !== undefined) {
-    const incidentPayload: any = { updatedAt: new Date().toISOString() }
-    
-    if (updates.description !== undefined) incidentPayload.description = updates.description
-    if (updates.severity !== undefined) incidentPayload.severity = updates.severity.toUpperCase()
-    
-    // Handle affectedPeople with possible naming variations
-    if (updates.affectedPeople !== undefined) {
-      incidentPayload.affectedPeople = updates.affectedPeople
-    }
-
-    console.log('[incident.service] Updating ConfirmedIncident fields:', incidentPayload)
-    const { data, error } = await supabase
-      .from('ConfirmedIncident')
-      .update(incidentPayload)
-      .eq('id', incidentId)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('[incident.service] ConfirmedIncident fields update failed:', error)
-      
-      // Fallback for naming variations
-      if (error.code === 'PGRST204' || error.message?.includes('column')) {
-        const fallbackPayload: any = { updated_at: new Date().toISOString() }
-        if (updates.description !== undefined) fallbackPayload.description = updates.description
-        if (updates.severity !== undefined) fallbackPayload.severity = updates.severity.toUpperCase()
-        if (updates.affectedPeople !== undefined) fallbackPayload.affected_population = updates.affectedPeople
+        console.error('[incident.service] ConfirmedIncident update error:', error)
         
+        // --- Fallback Strategy for schema variations ---
+        const fallbackPayload: any = { updated_at: new Date().toISOString() }
+        if (incidentPayload.description) fallbackPayload.description = incidentPayload.description
+        if (incidentPayload.severity) fallbackPayload.severity = incidentPayload.severity
+        if (incidentPayload.status) fallbackPayload.status = incidentPayload.status
+        if (updates.affectedPeople !== undefined) {
+          fallbackPayload.affected_population = updates.affectedPeople
+          fallbackPayload.affected_people = updates.affectedPeople
+        }
+
+        console.log('[incident.service] Retrying with fallback payload:', fallbackPayload)
         const { data: retryData, error: retryError } = await supabase
           .from('ConfirmedIncident')
           .update(fallbackPayload)
           .eq('id', incidentId)
           .select()
           .single()
-          
+
         if (retryError) throw retryError
         finalResult = retryData
       } else {
-        throw error
+        finalResult = data
       }
-    } else {
-      finalResult = data
     }
-  }
 
-  return finalResult
+    return finalResult
+  } catch (err) {
+    console.error('[incident.service] Final update catch block:', err)
+    throw err
+  }
 }
