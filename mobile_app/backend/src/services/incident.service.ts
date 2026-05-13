@@ -291,15 +291,5 @@ export async function updateIncident(
     }
   }
 
-  // 4. Emit socket event
-  const io = getIO()
-  if (io) {
-    io.emit('assignment:updated', { 
-      userId, 
-      incidentId, 
-      event: 'status_update' 
-    })
-  }
-
   return finalResult
 }

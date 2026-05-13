@@ -170,6 +170,26 @@ class NotificationService extends ChangeNotifier {
     // Also listen for resource and assignment events to show as notifications
     _assignmentSub = SocketService.instance.onAssignmentUpdate.listen((data) {
       print('🔔 Socket Assignment Event: ${data['event']}');
+      final incidentId = data['incidentId']?.toString();
+      final now = DateTime.now();
+      
+      // Cooldown to prevent duplicate notifications for the same incident within 2 seconds
+      if (incidentId != null) {
+        final lastNotified = _processedIds.contains('cooldown:$incidentId') 
+            ? DateTime.tryParse(_processedIds.firstWhere((id) => id.startsWith('ts:$incidentId:'), orElse: () => '').split(':').last)
+            : null;
+            
+        if (lastNotified != null && now.difference(lastNotified).inSeconds < 2) {
+          print('⏳ Skipping duplicate notification for incident $incidentId (cooldown)');
+          return;
+        }
+        
+        // Update cooldown timestamp
+        _processedIds.removeWhere((id) => id.startsWith('ts:$incidentId:'));
+        _processedIds.add('cooldown:$incidentId');
+        _processedIds.add('ts:$incidentId:${now.toIso8601String()}');
+      }
+
       final type = data['type'] ?? 'Assignment';
       final event = data['event'] ?? '';
       
