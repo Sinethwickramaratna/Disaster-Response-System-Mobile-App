@@ -5,16 +5,16 @@ import { getResourceRequestDetails } from '@/services/resource.service'
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const auth = authenticateFieldOfficer(req)
 
     if (!auth.ok) {
       return auth.response
     }
 
-    const { id } = params
     const details = await getResourceRequestDetails(id)
 
     if (!details) {
