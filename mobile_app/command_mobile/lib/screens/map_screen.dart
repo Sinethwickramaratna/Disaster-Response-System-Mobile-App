@@ -72,7 +72,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
     _retryLocationWhenResumed = false;
     if (mounted && _showCurrentLocation) {
-      unawaited(_loadCurrentLocation());
+      unawaited(_loadCurrentLocation(recenter: false));
     }
   }
 
@@ -210,7 +210,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     _loadSheltersAndReports();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _showCurrentLocation) {
-        _loadCurrentLocation(recenter: true);
+        // Only recenter to user location if we haven't already focused on a specific incident/report
+        _loadCurrentLocation(recenter: !_hasAppliedRouteFocus);
       }
     });
   }

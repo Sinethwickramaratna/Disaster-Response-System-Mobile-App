@@ -30,11 +30,27 @@ function haversineDistanceKm(
 }
 
 export async function getAssignedResources(userId: string) {
-  const { data, error } = await supabase
+  // First, find any resource requests made by this user
+  const { data: userRequests } = await supabase
+    .from('ResourceRequest')
+    .select('request_id')
+    .eq('requested_by', userId)
+
+  const requestIds = (userRequests ?? []).map((r) => r.request_id)
+
+  // Fetch deployments assigned directly to the user OR linked to their requests
+  let query = supabase
     .from('LogisticsDeployment')
-    .select('deployment_id, incident_id, status, dispatched_at, completed_at, items_dispatched, delivery_notes, resource_request_id')
-    .eq('user_id', userId)
-    .order('dispatched_at', { ascending: false })
+    .select('deployment_id, incident_id, status, dispatched_at, completed_at, items_dispatched, delivery_notes, resource_request_id, user_id')
+
+  if (requestIds.length > 0) {
+    // PostgREST syntax for OR with multiple conditions
+    query = query.or(`user_id.eq.${userId},resource_request_id.in.(${requestIds.join(',')})`)
+  } else {
+    query = query.eq('user_id', userId)
+  }
+
+  const { data, error } = await query.order('dispatched_at', { ascending: false })
 
   if (error) {
     throw error

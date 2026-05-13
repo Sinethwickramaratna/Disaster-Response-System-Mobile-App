@@ -523,6 +523,15 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
   }
 
   Widget _buildRequestedResources() {
+    final assignedRequestIds = _assignedResources
+        .map((r) => r.requestId?.toLowerCase())
+        .whereType<String>()
+        .toSet();
+
+    final displayedRequests = _resourceRequests
+        .where((r) => !assignedRequestIds.contains(r.requestId.toLowerCase()))
+        .toList();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -538,12 +547,12 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          if (_isLoadingRequests && _resourceRequests.isEmpty)
+          if (_isLoadingRequests && displayedRequests.isEmpty)
             _buildCapacityMessageCard('Loading requested resources...')
-          else if (_resourceRequests.isEmpty)
+          else if (displayedRequests.isEmpty)
             _buildCapacityMessageCard(_requestsMessage ?? 'No resource requests submitted yet')
           else
-            ..._resourceRequests.map((request) {
+            ...displayedRequests.map((request) {
               final status = request.status.toUpperCase();
               final statusColor = switch (status) {
                 'APPROVED' => Colors.tealAccent,
