@@ -211,8 +211,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 16),
                   _buildMetricCards(),
                   const SizedBox(height: 20),
-                  _buildLatestReports(),
-                  const SizedBox(height: 20),
+                  if (AuthService.currentUser?.role != 'LOGISTICS_STAFF') _buildLatestReports(),
+                  if (AuthService.currentUser?.role != 'LOGISTICS_STAFF') const SizedBox(height: 20),
                   _buildTelemetryTable(),
                 ],
               ),
@@ -348,7 +348,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Expanded(
               child: _buildSmallCard(
-                title: 'ACTIVE INCIDENTS',
+                title: AuthService.currentUser?.role == 'LOGISTICS_STAFF' 
+                    ? 'ACTIVE DEPLOYMENTS'
+                    : 'ACTIVE INCIDENTS',
                 value: '${summaryData?.activeIncidents ?? 0}',
                 valueColor: Colors.white,
               ),

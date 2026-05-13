@@ -5,6 +5,7 @@ import { jsonUnauthorized } from '@/lib/response'
 
 const FIELD_OFFICER_ROLE = 'FIELD_OFFICER'
 const RESPONSE_TEAM_MEMBER_ROLE = 'RESPONSE_TEAM_MEMBER'
+const LOGISTICS_STAFF_ROLE = 'LOGISTICS_STAFF'
 
 function readBearerToken(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -41,7 +42,11 @@ export function verifyJwtToken(token: string): AuthContext | null {
       return null
     }
 
-    if (decoded.role !== FIELD_OFFICER_ROLE && decoded.role !== RESPONSE_TEAM_MEMBER_ROLE) {
+    if (
+      decoded.role !== FIELD_OFFICER_ROLE &&
+      decoded.role !== RESPONSE_TEAM_MEMBER_ROLE &&
+      decoded.role !== LOGISTICS_STAFF_ROLE
+    ) {
       return null
     }
 

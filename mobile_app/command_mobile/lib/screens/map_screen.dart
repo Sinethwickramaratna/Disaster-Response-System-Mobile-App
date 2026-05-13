@@ -501,15 +501,15 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     markers: _incidents.map((inc) {
                       return Marker(
                         point: LatLng(inc.latitude, inc.longitude),
-                        width: 72,
-                        height: 72,
+                        width: 90,
+                        height: 90,
                         child: GestureDetector(
                           onTap: () => _showIncidentSheet(inc),
                           child: _buildMapMarker(
                             icon: Icons.report,
                             bgColor: inc.priority == 'HIGH' ? AppColors.error : AppColors.primary,
                             fgColor: AppColors.onSurface,
-                            label: inc.id,
+                            label: inc.id.length > 8 ? inc.id.substring(0, 8) : inc.id,
                             labelColor: AppColors.onSurface,
                             glowColor: inc.priority == 'HIGH' ? const Color(0x33EF4444) : const Color(0x333B82F6),
                           ),
@@ -556,23 +556,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                         width: 44,
                         height: 44,
                         child: GestureDetector(
-                          onTap: () => showModalBottomSheet(
-                            context: context,
-                            builder: (_) => Container(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(r.title, style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 8),
-                                  Text('Type: ${r.disasterType} • Verification: ${r.verificationStatus}'),
-                                  const SizedBox(height: 8),
-                                  Text(r.description ?? ''),
-                                ],
-                              ),
-                            ),
-                          ),
+                          onTap: () => _showReportSheet(r),
                           child: _buildMapMarkerIconOnly(
                             icon: Icons.report,
                             bgColor: AppColors.tertiaryContainer,
@@ -943,156 +927,254 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   //  MAP MARKER (with label)
   // ═══════════════════════════════════════
   void _showIncidentSheet(Incident inc) {
+    final isFieldOfficer = AuthService.currentUser?.role == 'FIELD_OFFICER';
+    final priorityColor = inc.priority == 'HIGH' ? AppColors.error : AppColors.primary;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.4,
-          minChildSize: 0.2,
-          maxChildSize: 0.9,
-          builder: (_, controller) {
-            return Container(
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerHighest,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              ),
-              padding: const EdgeInsets.all(12),
-              child: ListView(
-                controller: controller,
-                children: [
-                  Text(inc.id, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
-                  const SizedBox(height: 8),
-                  Text('${inc.type} • ${inc.zone}', style: GoogleFonts.spaceGrotesk(color: AppColors.onSurfaceVariant)),
-                  const SizedBox(height: 12),
-                  Text(inc.description, style: GoogleFonts.inter(color: AppColors.onSurface)),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      ElevatedButton(
-                        key: const Key('incident-on-the-way-button'),
-                        onPressed: () async {
-                          final messenger = ScaffoldMessenger.of(context);
-                          await IncidentService.updateIncidentStatus(inc.id, IncidentStatus.onTheWay);
-                          if (!mounted) return;
-                          Navigator.pop(context);
-                          messenger.showSnackBar(const SnackBar(content: Text('Status updated: On the way')));
-                        },
-                        child: const Text('ON THE WAY'),
-                      ),
-                      ElevatedButton(
-                        key: const Key('incident-reached-button'),
-                        onPressed: () async {
-                          final messenger = ScaffoldMessenger.of(context);
-                          await IncidentService.updateIncidentStatus(inc.id, IncidentStatus.reached);
-                          if (!mounted) return;
-                          Navigator.pop(context);
-                          messenger.showSnackBar(const SnackBar(content: Text('Status updated: Reached')));
-                        },
-                        child: const Text('REACHED'),
-                      ),
-                      ElevatedButton(
-                        key: const Key('incident-verify-button'),
-                        onPressed: () async {
-                          final messenger = ScaffoldMessenger.of(context);
-                          await IncidentService.updateIncidentStatus(inc.id, IncidentStatus.verified);
-                          if (!mounted) return;
-                          Navigator.pop(context);
-                          messenger.showSnackBar(const SnackBar(content: Text('Marked verified')));
-                        },
-                        child: const Text('VERIFY'),
-                      ),
-                      ElevatedButton(
-                        key: const Key('request-resources-button'),
-                        onPressed: () async {
-                          final messenger = ScaffoldMessenger.of(context);
-                          final res = await showDialog<String?>(context: context, builder: (dctx) {
-                            final ctrl = TextEditingController();
-                            return AlertDialog(
-                              title: const Text('Request Resources'),
-                              content: TextField(
-                                key: const Key('request-resources-input'),
-                                controller: ctrl,
-                                decoration: const InputDecoration(hintText: 'e.g. Ambulance, Medical Team'),
-                              ),
-                              actions: [
-                                TextButton(
-                                  key: const Key('request-resources-cancel-button'),
-                                  onPressed: () => Navigator.pop(dctx),
-                                  child: const Text('Cancel'),
-                                ),
-                                TextButton(
-                                  key: const Key('request-resources-send-button'),
-                                  onPressed: () {
-                                    final text = ctrl.text;
-                                    Navigator.pop(dctx, text);
-                                  },
-                                  child: const Text('Send'),
-                                ),
-                              ],
-                            );
-                          });
-                          if (res != null && res.trim().isNotEmpty) {
-                            final list = res.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-                            await IncidentService.requestResources(inc.id, list);
-                            if (!mounted) return;
-                            Navigator.pop(context);
-                            messenger.showSnackBar(const SnackBar(content: Text('Resource request sent')));
-                          }
-                        },
-                        child: const Text('REQUEST RESOURCES'),
-                      ),
-                    ],
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    key: const Key('add-observation-button'),
-                    onPressed: () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      final note = await showDialog<String?>(context: context, builder: (dctx) {
-                        final ctrl = TextEditingController();
-                        return AlertDialog(
-                          title: const Text('Add Observation'),
-                          content: TextField(
-                            key: const Key('add-observation-input'),
-                            controller: ctrl,
-                            decoration: const InputDecoration(hintText: 'Short note'),
-                          ), 
-                          actions: [
-                            TextButton(
-                              key: const Key('add-observation-cancel-button'),
-                              onPressed: () => Navigator.pop(dctx),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              key: const Key('add-observation-save-button'),
-                              onPressed: () {
-                                final text = ctrl.text;
-                                Navigator.pop(dctx, text);
-                              },
-                              child: const Text('Save'),
-                            ),
-                          ],
-                        );
-                      });
-                      if (note != null && note.trim().isNotEmpty) {
-                        await IncidentService.addObservation(inc.id, note.trim());
-                        if (!mounted) return;
-                        Navigator.pop(context);
-                        messenger.showSnackBar(const SnackBar(content: Text('Observation added')));
-                      }
-                    },
-                    child: const Text('ADD OBSERVATION'),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'INCIDENT #${inc.id.toUpperCase()}',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                            color: priorityColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          inc.type.toUpperCase(),
+                          style: GoogleFonts.inter(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.onSurface,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: priorityColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: priorityColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      inc.priority,
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: priorityColor,
+                      ),
+                    ),
                   ),
                 ],
               ),
-            );
-          },
+              const SizedBox(height: 20),
+              _buildInfoRow(Icons.location_on_outlined, inc.zone, 'Tactical Area of Operations'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.outlineVariant),
+                ),
+                child: Text(
+                  inc.description,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    height: 1.5,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildTacticalButton(
+                      label: 'ON THE WAY',
+                      icon: Icons.directions_run,
+                      onTap: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        await IncidentService.updateIncidentStatus(inc.id, IncidentStatus.onTheWay);
+                        if (!mounted) return;
+                        Navigator.pop(context);
+                        messenger.showSnackBar(const SnackBar(content: Text('Status updated: On the way')));
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildTacticalButton(
+                      label: 'REACHED',
+                      icon: Icons.location_on,
+                      onTap: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        await IncidentService.updateIncidentStatus(inc.id, IncidentStatus.reached);
+                        if (!mounted) return;
+                        Navigator.pop(context);
+                        messenger.showSnackBar(const SnackBar(content: Text('Status updated: Reached')));
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildTacticalButton(
+                      label: 'VERIFY',
+                      icon: Icons.verified_user_outlined,
+                      onTap: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        await IncidentService.updateIncidentStatus(inc.id, IncidentStatus.verified);
+                        if (!mounted) return;
+                        Navigator.pop(context);
+                        messenger.showSnackBar(const SnackBar(content: Text('Marked verified')));
+                      },
+                    ),
+                  ),
+                  if (isFieldOfficer) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildTacticalButton(
+                        label: 'RESOURCES',
+                        icon: Icons.inventory_2_outlined,
+                        onTap: () => _handleRequestResources(inc),
+                        isPrimary: true,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: _buildTacticalButton(
+                  label: 'ADD OBSERVATION',
+                  icon: Icons.add_comment_outlined,
+                  onTap: () => _handleAddObservation(inc),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
+  }
+
+  void _handleRequestResources(Incident inc) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final res = await showDialog<String?>(
+      context: context,
+      builder: (dctx) {
+        final ctrl = TextEditingController();
+        return AlertDialog(
+          backgroundColor: AppColors.surfaceContainerLow,
+          title: Text('Request Resources', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'e.g. Ambulance, Medical Team',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dctx),
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dctx, ctrl.text),
+              child: const Text('SEND'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (res != null && res.trim().isNotEmpty) {
+      final list = res.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+      await IncidentService.requestResources(inc.id, list);
+      if (!mounted) return;
+      Navigator.pop(context); // Close bottom sheet
+      messenger.showSnackBar(const SnackBar(content: Text('Resource request sent')));
+    }
+  }
+
+  void _handleAddObservation(Incident inc) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final note = await showDialog<String?>(
+      context: context,
+      builder: (dctx) {
+        final ctrl = TextEditingController();
+        return AlertDialog(
+          backgroundColor: AppColors.surfaceContainerLow,
+          title: Text('Add Observation', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Enter short note',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dctx),
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dctx, ctrl.text),
+              child: const Text('SAVE'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (note != null && note.trim().isNotEmpty) {
+      await IncidentService.addObservation(inc.id, note.trim());
+      if (!mounted) return;
+      Navigator.pop(context); // Close bottom sheet
+      messenger.showSnackBar(const SnackBar(content: Text('Observation added')));
+    }
   }
 
   void _showShelterSheet(ShelterData shelter) {
@@ -1112,111 +1194,302 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       isScrollControlled: true,
       builder: (_) => Container(
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerHighest,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
               child: Container(
-                width: 44,
+                width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: AppColors.outlineVariant,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 24),
             Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.secondary.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppColors.secondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.secondary.withValues(alpha: 0.2)),
                   ),
                   child: const Icon(Icons.home_work, color: AppColors.secondary),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
-                  child: Text(
-                    shelter.name,
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.onSurface,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: occupancyColor.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    shelter.status,
-                    style: GoogleFonts.spaceGrotesk(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: occupancyColor,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        shelter.name,
+                        style: GoogleFonts.inter(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Tactical Shelter Facility',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 12,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'OCCUPANCY STATUS',
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+                Text(
+                  '${shelter.occupancy} / ${shelter.capacity}',
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Stack(
+              children: [
+                Container(
+                  height: 12,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 500),
+                  height: 12,
+                  width: (MediaQuery.of(context).size.width - 40) * (occupancyPercent / 100),
+                  decoration: BoxDecoration(
+                    color: occupancyColor,
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: occupancyColor.withValues(alpha: 0.4),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _buildInfoRow(Icons.person_outline, shelter.contactPerson ?? 'N/A', 'Contact Officer'),
             const SizedBox(height: 16),
-            Text(
-              'Occupancy',
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppColors.onSurfaceVariant,
+            _buildInfoRow(Icons.phone_outlined, shelter.contactPhone ?? 'N/A', 'Direct Line'),
+            if (shelter.distanceKm != null) ...[
+              const SizedBox(height: 16),
+              _buildInfoRow(Icons.near_me_outlined, '${shelter.distanceKm!.toStringAsFixed(1)} km', 'Proximity'),
+            ],
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: _buildTacticalButton(
+                label: 'NAVIGATE TO SHELTER',
+                icon: Icons.map_outlined,
+                onTap: () => Navigator.pop(context),
+                isPrimary: true,
               ),
             ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                minHeight: 10,
-                value: occupancyPercent / 100,
-                backgroundColor: Colors.white12,
-                valueColor: AlwaysStoppedAnimation<Color>(occupancyColor),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReportSheet(ReportData r) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 24),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'FIELD REPORT',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                            color: AppColors.tertiary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          r.title.toUpperCase(),
+                          style: GoogleFonts.inter(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.onSurface,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _buildInfoRow(Icons.warning_amber_outlined, r.disasterType, 'Disaster Category'),
+              const SizedBox(height: 16),
+              _buildInfoRow(Icons.verified_outlined, r.verificationStatus, 'Verification Status'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.outlineVariant),
+                ),
+                child: Text(
+                  r.description ?? 'No description provided.',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    height: 1.5,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: _buildTacticalButton(
+                  label: 'ACKNOWLEDGE REPORT',
+                  icon: Icons.check_circle_outline,
+                  onTap: () => Navigator.pop(context),
+                  isPrimary: true,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String title, String subtitle) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: AppColors.primary),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              '${shelter.occupancy}/${shelter.capacity} (${occupancyPercent.toStringAsFixed(0)}%)',
+              title,
               style: GoogleFonts.inter(
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: AppColors.onSurface,
               ),
             ),
-            const SizedBox(height: 14),
-            if (shelter.distanceKm != null)
-              Text(
-                'Distance: ${shelter.distanceKm!.toStringAsFixed(1)} km',
-                style: GoogleFonts.inter(fontSize: 13, color: AppColors.onSurfaceVariant),
+            Text(
+              subtitle,
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 11,
+                color: AppColors.onSurfaceVariant,
               ),
-            if (shelter.contactPerson != null && shelter.contactPerson!.isNotEmpty)
-              Text(
-                'Contact: ${shelter.contactPerson}',
-                style: GoogleFonts.inter(fontSize: 13, color: AppColors.onSurfaceVariant),
-              ),
-            if (shelter.contactPhone != null && shelter.contactPhone!.isNotEmpty)
-              Text(
-                'Phone: ${shelter.contactPhone}',
-                style: GoogleFonts.inter(fontSize: 13, color: AppColors.onSurfaceVariant),
-              ),
-            const SizedBox(height: 6),
+            ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTacticalButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+    bool isPrimary = false,
+  }) {
+    final bgColor = isPrimary ? AppColors.primary : AppColors.surfaceContainerHigh;
+    final fgColor = isPrimary ? AppColors.onPrimary : AppColors.onSurface;
+
+    return Material(
+      color: bgColor,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: fgColor),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.0,
+                  color: fgColor,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1258,6 +1531,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               ),
               child: Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.spaceGrotesk(
                   fontSize: 10,
                   fontWeight: FontWeight.w500,

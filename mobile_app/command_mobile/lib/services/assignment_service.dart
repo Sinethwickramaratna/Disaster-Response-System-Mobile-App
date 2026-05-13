@@ -205,6 +205,31 @@ class AssignmentService {
     return response.statusCode >= 200 && response.statusCode < 300;
   }
 
+  static Future<bool> updateDeployment({
+    required String deploymentId,
+    required String status,
+    String? deliveryNotes,
+  }) async {
+    final response = await _authorizedRequest(
+      'PATCH',
+      '/api/resources/deployments/$deploymentId',
+      body: {
+        'status': status,
+        if (deliveryNotes != null) 'deliveryNotes': deliveryNotes,
+      },
+    );
+
+    return response.statusCode >= 200 && response.statusCode < 300;
+  }
+
+  static Future<Map<String, dynamic>?> fetchResourceRequestDetails(String requestId) async {
+    final decoded = await _cachedJson('/api/resources/requests/$requestId');
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    return null;
+  }
+
   static Future<dynamic> _authorizedJson(
     String path, {
     Map<String, String>? queryParameters,

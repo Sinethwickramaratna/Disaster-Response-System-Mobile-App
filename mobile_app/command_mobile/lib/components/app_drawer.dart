@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/user.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
+import '../services/socket_service.dart';
 import '../theme/app_theme.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -54,7 +56,7 @@ class AppDrawer extends StatelessWidget {
             _buildHeader(user),
             const Divider(height: 1, color: Colors.white10),
             const SizedBox(height: 8),
-            ..._destinations.map(
+            ..._destinations.where((d) => d.label != 'Reports' || AuthService.currentUser?.role != 'LOGISTICS_STAFF').map(
               (destination) => _buildDestination(context, destination),
             ),
             const Spacer(),
@@ -195,8 +197,11 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  void _logout(BuildContext context) {
-    AuthService.signOut();
+  void _logout(BuildContext context) async {
+    await AuthService.signOut();
+    NotificationService.instance.clearNotifications();
+    SocketService.instance.disconnect();
+    if (!context.mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 }

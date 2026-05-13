@@ -9,6 +9,7 @@ import '../services/notification_service.dart';
 import '../components/app_drawer.dart';
 import '../components/notification_button.dart';
 import '../components/nav_bar.dart';
+import 'logistics_detail_screen.dart';
 
 class ResourcesScreen extends StatefulWidget {
   const ResourcesScreen({super.key});
@@ -286,9 +287,11 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                     child: _buildCapacityCards(),
                   ),
                   const SizedBox(height: 24),
-                  if (AuthService.currentUser?.role == 'FIELD_OFFICER') ...[
                     _buildRequestedResources(),
                     const SizedBox(height: 24),
+                    _buildAssignedResources(),
+                  ],
+                  if (AuthService.currentUser?.role == 'LOGISTICS_STAFF') ...[
                     _buildAssignedResources(),
                   ],
                 ],
@@ -663,60 +666,73 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                   ? 'Assigned Resource ${resource.deploymentId}'
                   : 'Deployment ${resource.deploymentId}';
 
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: primaryBlue.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(Icons.inventory_2, color: primaryBlue),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            titleText,
-                            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Incident: ${resource.incidentId ?? 'N/A'}',
-                            style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Items: $dispatchedCount',
-                            style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
-                          ),
-                        ],
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => LogisticsDetailScreen(
+                        deploymentId: resource.deploymentId,
+                        requestId: resource.requestId,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: badgeColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
+                  ).then((_) => _refreshResources(ignoreCache: true));
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: primaryBlue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.inventory_2, color: primaryBlue),
                       ),
-                      child: Text(
-                        status,
-                        style: GoogleFonts.inter(color: badgeColor, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              titleText,
+                              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Incident: ${resource.incidentId ?? 'N/A'}',
+                              style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Items: $dispatchedCount',
+                              style: GoogleFonts.inter(color: textSecondary, fontSize: 12),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: badgeColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
+                        ),
+                        child: Text(
+                          status,
+                          style: GoogleFonts.inter(color: badgeColor, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }),

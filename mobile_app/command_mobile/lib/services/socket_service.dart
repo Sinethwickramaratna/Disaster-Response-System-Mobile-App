@@ -152,6 +152,7 @@ class SocketService {
       'resourceRequest:updated',
       'resourceRequest:created',
       'resourceRequest:deleted',
+      'logisticsDeployment:updated',
     ]) {
       socket.on(eventName, (data) {
         debugPrint('🔥 RAW SOCKET EVENT: $eventName -> $data');

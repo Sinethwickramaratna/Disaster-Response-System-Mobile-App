@@ -407,6 +407,7 @@ class ResourceDeployment {
   final DateTime? completedAt;
   final String? deliveryNotes;
   final String? incidentId;
+  final String? requestId;
 
   ResourceDeployment({
     required this.deploymentId,
@@ -416,6 +417,7 @@ class ResourceDeployment {
     this.completedAt,
     this.deliveryNotes,
     this.incidentId,
+    this.requestId,
   });
 
   factory ResourceDeployment.fromJson(Map<String, dynamic> json) {
@@ -430,6 +432,7 @@ class ResourceDeployment {
           : null,
       deliveryNotes: _readValue(json, ['delivery_notes', 'deliveryNotes'])?.toString(),
       incidentId: _readValue(json, ['incident_id', 'incidentId'])?.toString(),
+      requestId: _readValue(json, ['requestId', 'request_id', 'resource_request_id'])?.toString(),
     );
   }
 }

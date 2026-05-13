@@ -236,119 +236,165 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF10131A),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: accentColor.withValues(alpha: 0.5), width: 2),
-        ),
-        title: Row(
-          children: [
-            Icon(isCritical ? Icons.warning_rounded : Icons.info_outline, color: accentColor),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                config.title,
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: accentColor.withValues(alpha: 0.2)),
+            boxShadow: [
+              BoxShadow(
+                color: accentColor.withValues(alpha: 0.1),
+                blurRadius: 30,
+                spreadRadius: -10,
               ),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: MediaQuery.of(context).size.width,
+            ],
+          ),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        config.rawSeverity,
-                        style: GoogleFonts.spaceGrotesk(
-                          color: accentColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: config.status == 'ACTIVE' ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        config.status,
-                        style: GoogleFonts.spaceGrotesk(
-                          color: config.status == 'ACTIVE' ? Colors.greenAccent : Colors.grey,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Alert ID: ${config.id}',
-                  style: GoogleFonts.spaceGrotesk(
-                    color: Colors.white30,
-                    fontSize: 10,
-                    letterSpacing: 0.5,
+                // Top header with icon
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.05),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  ),
+                  child: Icon(
+                    isCritical ? Icons.warning_amber_rounded : Icons.info_outline,
+                    color: accentColor,
+                    size: 48,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  config.description,
-                  style: GoogleFonts.inter(
-                    color: const Color(0xFF9CA3AF),
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Divider(color: Colors.white10),
-                const SizedBox(height: 12),
-                _buildDetailRow(Icons.category_outlined, 'Type', config.type, accentColor),
-                _buildDetailRow(Icons.public, 'Scope', config.isPublic ? 'PUBLIC' : 'INTERNAL', accentColor),
-                ...config.metaItems.map((meta) => _buildDetailRow(meta.icon, 'Info', meta.label, accentColor)),
-                const SizedBox(height: 12),
-                Text(
-                  'Created At: ${config.timestamp}',
-                  style: GoogleFonts.spaceGrotesk(
-                    color: Colors.white30,
-                    fontSize: 11,
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: accentColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+                            ),
+                            child: Text(
+                              config.rawSeverity,
+                              style: GoogleFonts.spaceGrotesk(
+                                color: accentColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            config.status,
+                            style: GoogleFonts.spaceGrotesk(
+                              color: config.status == 'ACTIVE' ? Colors.greenAccent : Colors.grey,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        config.title,
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 22,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Alert ID: ${config.id}',
+                        style: GoogleFonts.spaceGrotesk(
+                          color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+                          fontSize: 10,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.outlineVariant),
+                        ),
+                        child: Text(
+                          config.description,
+                          style: GoogleFonts.inter(
+                            color: AppColors.onSurfaceVariant,
+                            fontSize: 15,
+                            height: 1.6,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildDetailRow(Icons.category_outlined, 'Category', config.type, accentColor),
+                      _buildDetailRow(Icons.public, 'Protocol', config.isPublic ? 'PUBLIC BROADCAST' : 'INTERNAL TACTICAL', accentColor),
+                      ...config.metaItems.map((meta) => _buildDetailRow(meta.icon, 'Location', meta.label, accentColor)),
+                      const SizedBox(height: 12),
+                      const Divider(color: Colors.white10),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'TIMESTAMP',
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          Text(
+                            config.timestamp,
+                            style: GoogleFonts.spaceGrotesk(
+                              color: AppColors.onSurfaceVariant,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: accentColor,
+                            foregroundColor: isCritical ? Colors.black : Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Text(
+                            'ACKNOWLEDGE',
+                            style: GoogleFonts.spaceGrotesk(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'CLOSE',
-              style: GoogleFonts.spaceGrotesk(
-                color: accentColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

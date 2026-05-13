@@ -66,7 +66,9 @@ class NotificationService extends ChangeNotifier {
       String? title;
       String? message;
       String? dedupeId;
-      final isFieldOfficer = AuthService.currentUser?.role == 'FIELD_OFFICER';
+      final role = AuthService.currentUser?.role ?? 'FIELD_OFFICER';
+      final isFieldOfficer = role == 'FIELD_OFFICER';
+      final isLogisticsStaff = role == 'LOGISTICS_STAFF';
 
       if (data.containsKey('requestId') && isFieldOfficer) {
         final status = data['status']?.toString().toUpperCase() ?? 'PENDING';
@@ -86,7 +88,7 @@ class NotificationService extends ChangeNotifier {
         } else {
           message = 'Request ${data['requestId']} is now $status';
         }
-      } else if (data.containsKey('deploymentId') && isFieldOfficer) {
+      } else if (data.containsKey('deploymentId') && (isFieldOfficer || isLogisticsStaff || AuthService.currentUser?.role == 'RESPONSE_TEAM_MEMBER')) {
         final status = data['status']?.toString().toUpperCase() ?? 'PENDING';
         final updatedAt = data['updatedAt']?.toString() ?? data['updated_at']?.toString() ?? '';
         dedupeId = 'dep:${data['deploymentId']}:$event:$status:$updatedAt';

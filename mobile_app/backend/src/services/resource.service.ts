@@ -32,7 +32,7 @@ function haversineDistanceKm(
 export async function getAssignedResources(userId: string) {
   const { data, error } = await supabase
     .from('LogisticsDeployment')
-    .select('deployment_id, incident_id, status, dispatched_at, completed_at, items_dispatched')
+    .select('deployment_id, incident_id, status, dispatched_at, completed_at, items_dispatched, delivery_notes, resource_request_id')
     .eq('user_id', userId)
     .order('dispatched_at', { ascending: false })
 
@@ -47,6 +47,8 @@ export async function getAssignedResources(userId: string) {
     dispatchedAt: deployment.dispatched_at,
     completedAt: deployment.completed_at,
     items: Array.isArray(deployment.items_dispatched) ? deployment.items_dispatched : deployment.items_dispatched ?? [],
+    deliveryNotes: deployment.delivery_notes,
+    requestId: deployment.resource_request_id,
   }))
 }
 
@@ -407,4 +409,78 @@ export async function getNearbyShelters(query: NearbySheltersQuery) {
 
     return left.distanceKm - right.distanceKm
   })
+}
+export async function updateLogisticsDeployment(deploymentId: string, userId: string, status: string, deliveryNotes?: string) {
+  const { data, error } = await supabase
+    .from('LogisticsDeployment')
+    .update({ 
+      status, 
+      delivery_notes: deliveryNotes,
+      completed_at: status === 'DELIVERED' ? new Date().toISOString() : null
+    })
+    .eq('deployment_id', deploymentId)
+    .select('deployment_id, incident_id, user_id, status, delivery_notes')
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  // Emit socket event for real-time update
+  const io = getIO()
+  if (io) {
+    io.emit('logisticsDeployment:updated', {
+      deploymentId: data.deployment_id,
+      userId: data.user_id,
+      incidentId: data.incident_id,
+      status: data.status,
+      deliveryNotes: data.delivery_notes
+    })
+  }
+
+  return data
+}
+
+export async function getResourceRequestDetails(requestId: string) {
+  const { data: request, error: requestError } = await supabase
+    .from('ResourceRequest')
+    .select('request_id, incident_id, status, created_at, reviewed_at, items, notes')
+    .eq('request_id', requestId)
+    .single()
+
+  if (requestError) throw requestError
+
+  // Fetch incident details
+  const { data: incident, error: incidentError } = await supabase
+    .from('ConfirmedIncident')
+    .select('id, title, district, latitude, longitude, description')
+    .eq('id', request.incident_id)
+    .single()
+
+  if (incidentError) throw incidentError
+
+  // Fetch assigned Field Officer
+  const { data: assignments, error: assignmentError } = await supabase
+    .from('PersonnelAssignment')
+    .select('user_id, assigned_role')
+    .eq('incident_id', request.incident_id)
+    .eq('assigned_role', 'FIELD_OFFICER')
+    .neq('status', 'RELEASED')
+
+  let fieldOfficer = null
+  if (!assignmentError && assignments && assignments.length > 0) {
+    const { data: user } = await supabase
+      .from('User')
+      .select('id, name, email')
+      .eq('id', assignments[0].user_id)
+      .single()
+    
+    if (user) fieldOfficer = user
+  }
+
+  return {
+    ...request,
+    incident,
+    fieldOfficer
+  }
 }

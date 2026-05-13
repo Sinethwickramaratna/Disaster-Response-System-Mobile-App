@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/auth_service.dart';
 
 class BottomNav extends StatelessWidget {
   final int currentIndex;
@@ -13,6 +14,8 @@ class BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLogistics = AuthService.currentUser?.role == 'LOGISTICS_STAFF';
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF020617).withValues(alpha: 0.9), // slate-950/90
@@ -35,7 +38,7 @@ class BottomNav extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildNavItem(0, Icons.dashboard, 'Dashboard'),
-              _buildNavItem(1, Icons.description, 'Reports'),
+              if (!isLogistics) _buildNavItem(1, Icons.description, 'Reports'),
               _buildNavItem(2, Icons.map, 'Map'),
               _buildNavItem(3, Icons.inventory_2, 'Resources'),
               _buildNavItem(4, Icons.warning, 'Alerts'),
