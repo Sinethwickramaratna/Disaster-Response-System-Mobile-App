@@ -184,7 +184,7 @@ export async function updateIncident(
   // 1. Verify authorization
   const { data: assignment, error: assignmentError } = await supabase
     .from('PersonnelAssignment')
-    .select('assignment_id, incident_id')
+    .select('assignment_id, incident_id, status')
     .eq('user_id', userId)
     .eq('incident_id', incidentId)
     .maybeSingle()
@@ -199,71 +199,107 @@ export async function updateIncident(
     throw new Error('Unauthorized: User is not assigned to this incident')
   }
 
-  // 2. Build payload with fallbacks for naming conventions
-  const payload: any = {}
+  let finalResult: any = null
 
-  if (updates.description !== undefined) payload.description = updates.description
-  
-  if (updates.status !== undefined) {
-    payload.status = updates.status.trim()
-  }
-  
-  if (updates.severity !== undefined) {
-    payload.severity = updates.severity.trim()
-  }
-
-  // Handle affected people with a few possible naming conventions
-  if (updates.affectedPeople !== undefined) {
-    payload.affectedPeople = updates.affectedPeople
-    // If the schema uses snake_case, we might need affected_population or affected_people
-    // But since we can only send one and select().single() fails if columns don't exist,
-    // we'll stick to what we saw in the context SQL unless it fails.
-  }
-
-  // updatedAt / updated_at
-  const now = new Date().toISOString()
-  payload.updatedAt = now
-
-  console.log('[incident.service] Updating ConfirmedIncident with payload:', payload)
-
-  // 3. Execute update
-  const { data, error } = await supabase
-    .from('ConfirmedIncident')
-    .update(payload)
-    .eq('id', incidentId)
-    .select()
-    .single()
-
-  if (error) {
-    console.error('[incident.service] Update execution failed:', error)
+  // 2. Handle status updates
+  if (updates.status) {
+    const rawStatus = updates.status.trim().toUpperCase().replace('-', '_')
+    const personnelStatuses = ['ASSIGNED', 'EN_ROUTE', 'ON_SITE', 'RELEASED', 'ATTHEINCIDENT']
     
-    // Fallback: If it was a column name error, try snake_case for common fields
-    if (error.code === 'PGRST204' || error.message?.includes('column')) {
-      console.log('[incident.service] Attempting snake_case fallback...')
-      const fallbackPayload: any = { updated_at: now }
-      if (updates.description !== undefined) fallbackPayload.description = updates.description
-      if (updates.status !== undefined) fallbackPayload.status = updates.status
-      if (updates.severity !== undefined) fallbackPayload.severity = updates.severity
-      if (updates.affectedPeople !== undefined) fallbackPayload.affected_population = updates.affectedPeople
+    if (personnelStatuses.includes(rawStatus)) {
+      // Map legacy/app strings to DB check constraint values
+      let dbStatus = rawStatus
+      if (dbStatus === 'ATTHEINCIDENT') dbStatus = 'ON_SITE'
       
-      const { data: retryData, error: retryError } = await supabase
+      console.log(`[incident.service] Updating PersonnelAssignment status to ${dbStatus}`)
+      const { data, error } = await supabase
+        .from('PersonnelAssignment')
+        .update({ status: dbStatus })
+        .eq('user_id', userId)
+        .eq('incident_id', incidentId)
+        .select()
+        .single()
+        
+      if (error) {
+        console.error('[incident.service] PersonnelAssignment status update failed:', error)
+        throw error
+      }
+      finalResult = data
+    } else {
+      // It's an incident-level status update (e.g. ACTIVE, CLOSED, RESOLVED)
+      // Check if user has permission to update incident-level status
+      // (For now, we allow if they are assigned, but ideally we'd check roles)
+      const { data, error } = await supabase
         .from('ConfirmedIncident')
-        .update(fallbackPayload)
+        .update({ status: rawStatus, updatedAt: new Date().toISOString() })
         .eq('id', incidentId)
         .select()
         .single()
         
-      if (retryError) {
-        console.error('[incident.service] Retry failed:', retryError)
-        throw retryError
+      if (error) {
+        console.error('[incident.service] ConfirmedIncident status update failed:', error)
+        throw error
       }
-      return retryData
+      finalResult = data
     }
-    
-    throw error
   }
 
-  console.log('[incident.service] Update successful:', data)
+  // 3. Handle other incident-level fields (description, affected people, severity)
+  if (updates.description !== undefined || updates.affectedPeople !== undefined || updates.severity !== undefined) {
+    const incidentPayload: any = { updatedAt: new Date().toISOString() }
+    
+    if (updates.description !== undefined) incidentPayload.description = updates.description
+    if (updates.severity !== undefined) incidentPayload.severity = updates.severity.toUpperCase()
+    
+    // Handle affectedPeople with possible naming variations
+    if (updates.affectedPeople !== undefined) {
+      incidentPayload.affectedPeople = updates.affectedPeople
+    }
 
-  return data
+    console.log('[incident.service] Updating ConfirmedIncident fields:', incidentPayload)
+    const { data, error } = await supabase
+      .from('ConfirmedIncident')
+      .update(incidentPayload)
+      .eq('id', incidentId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('[incident.service] ConfirmedIncident fields update failed:', error)
+      
+      // Fallback for naming variations
+      if (error.code === 'PGRST204' || error.message?.includes('column')) {
+        const fallbackPayload: any = { updated_at: new Date().toISOString() }
+        if (updates.description !== undefined) fallbackPayload.description = updates.description
+        if (updates.severity !== undefined) fallbackPayload.severity = updates.severity.toUpperCase()
+        if (updates.affectedPeople !== undefined) fallbackPayload.affected_population = updates.affectedPeople
+        
+        const { data: retryData, error: retryError } = await supabase
+          .from('ConfirmedIncident')
+          .update(fallbackPayload)
+          .eq('id', incidentId)
+          .select()
+          .single()
+          
+        if (retryError) throw retryError
+        finalResult = retryData
+      } else {
+        throw error
+      }
+    } else {
+      finalResult = data
+    }
+  }
+
+  // 4. Emit socket event
+  const io = getIO()
+  if (io) {
+    io.emit('assignment:updated', { 
+      userId, 
+      incidentId, 
+      event: 'status_update' 
+    })
+  }
+
+  return finalResult
 }

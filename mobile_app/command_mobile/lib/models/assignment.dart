@@ -66,8 +66,8 @@ enum TacticalIncidentStatus {
   String get dbValue => switch (this) {
     ACTIVE => 'ACTIVE',
     FALSEREPORT => 'FALSEREPORT',
-    ATTHEINCIDENT => 'ATTHEINCIDENT',
-    EN_ROUTE => 'EN-ROUTE',
+    ATTHEINCIDENT => 'ON_SITE',
+    EN_ROUTE => 'EN_ROUTE',
     INSPECTING => 'INSPECTING',
   };
 }

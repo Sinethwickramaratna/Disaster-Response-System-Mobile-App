@@ -35,6 +35,22 @@ class IncidentService {
   static Future<void> updateIncidentStatus(String incidentId, IncidentStatus status) async {
     final idx = _incidents.indexWhere((i) => i.id == incidentId);
     if (idx == -1) return;
+
+    final String dbStatus = switch (status) {
+      IncidentStatus.onTheWay => 'EN_ROUTE',
+      IncidentStatus.reached => 'ON_SITE',
+      IncidentStatus.verified => 'ACTIVE',
+      IncidentStatus.resolved => 'RESOLVED',
+      IncidentStatus.closed => 'CLOSED',
+      _ => 'ACTIVE',
+    };
+
+    // Call the API
+    await AssignmentService.updateIncident(
+      incidentId: incidentId,
+      status: dbStatus,
+    );
+
     _incidents[idx].status = status;
     _updates.add(_incidents[idx]);
     await Future.delayed(const Duration(milliseconds: 200));
