@@ -191,30 +191,13 @@ export async function getAssignedIncidents(userId: string, filters: AssignmentFi
 import { getAlerts as fetchAlertsFromService } from './alert.service'
 
 export async function getAssignmentAlerts(userId: string, scope: 'citizen' | 'internal' | 'all' = 'all') {
-  const officerAssignments = await getOfficerAssignmentRows(userId)
-  const districts = Array.from(
-    new Set(
-      officerAssignments
-        .map((row) => unwrapRelation(row.ConfirmedIncident)?.district)
-        .filter((district): district is string => Boolean(district))
-    )
-  )
-
-  console.log(`[getAssignmentAlerts] User ${userId} has assignments in districts:`, districts)
-
-  const alerts = await fetchAlertsFromService(districts)
+  // Fetch ALL active alerts from the Alert table, regardless of district assignment
+  const alerts = await fetchAlertsFromService([])
   
-  console.log(`[getAssignmentAlerts] Fetched ${alerts.length} total alerts before scope filtering`)
+  console.log(`[getAssignmentAlerts] Fetched ${alerts.length} active alerts for all roles`)
 
-  const filtered = alerts.filter(alert => {
-    if (scope === 'citizen') return alert.isPublic === true
-    if (scope === 'internal') return alert.isPublic === false
-    return true
-  })
-
-  console.log(`[getAssignmentAlerts] Scope filter '${scope}' returned ${filtered.length} alerts (public=${scope === 'citizen'}, internal=${scope === 'internal'})`)
-
-  return filtered
+  // Return all alerts since we only use the Alert table now
+  return alerts
 }
 
 export async function getAssignedResources(userId: string) {
