@@ -164,10 +164,8 @@ class SocketService {
 
     for (final eventName in const [
       'alert:critical',
-      'alert:public',
       'alert:new',
       'alert:created',
-      'publicAlert:created'
     ]) {
       socket.on(eventName, (data) {
         final map = _toMap(data);

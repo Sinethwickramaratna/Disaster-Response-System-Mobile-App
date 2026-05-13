@@ -124,7 +124,9 @@ class NotificationService extends ChangeNotifier {
     _alertSub = SocketService.instance.onAlert.listen((data) {
       print('🔔 Socket Alert Received: ${data['event']}');
       final event = data['event'] ?? '';
-      if (event == 'alert:created' || event == 'publicAlert:created') {
+      
+      // Only process events from the main Alert table
+      if (event == 'alert:created') {
         final alertId = data['alertId']?.toString() ?? '';
         final updatedAt = data['updatedAt']?.toString() ?? '';
         final dedupeId = 'alert:$alertId:$updatedAt';
@@ -134,8 +136,8 @@ class NotificationService extends ChangeNotifier {
 
         final title = data['title']?.toString() ?? 'New Alert';
         final severity = data['severity']?.toString() ?? 'NORMAL';
-        final type = event == 'publicAlert:created' ? 'PUBLIC ALERT' : (data['type']?.toString() ?? 'ALERT');
-        final message = data['message']?.toString() ?? 'A new $severity $type was issued.';
+        final type = data['type']?.toString() ?? 'ALERT';
+        final message = data['message']?.toString() ?? data['description']?.toString() ?? 'A new $severity $type was issued.';
 
         addNotification({
           'title': title,
@@ -264,7 +266,15 @@ class NotificationService extends ChangeNotifier {
     required String body,
     String? payload,
   }) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    // Determine color based on title content (severity)
+    Color accentColor = const Color(0xFF4D8EFF); // Default DMC Blue
+    if (title.toUpperCase().contains('CRITICAL') || body.toUpperCase().contains('CRITICAL')) {
+      accentColor = const Color(0xFFFF5252); // RedAccent
+    } else if (title.toUpperCase().contains('ALERT') || title.toUpperCase().contains('WARNING')) {
+      accentColor = const Color(0xFFFFAB40); // OrangeAccent
+    }
+
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'dmc_alerts_channel',
       'DMC Alerts',
@@ -272,15 +282,29 @@ class NotificationService extends ChangeNotifier {
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
+      color: accentColor,
+      colorized: true,
+      styleInformation: BigTextStyleInformation(
+        body,
+        contentTitle: title,
+        summaryText: 'DMC Sri Lanka',
+      ),
+      ticker: 'DMC: $title',
+      category: AndroidNotificationCategory.alarm,
     );
     
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
-      iOS: DarwinNotificationDetails(),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        interruptionLevel: InterruptionLevel.critical,
+      ),
     );
 
     await _localNotifications.show(
-      id: DateTime.now().millisecond, // Unique ID
+      id: DateTime.now().millisecond,
       title: title,
       body: body,
       notificationDetails: platformChannelSpecifics,

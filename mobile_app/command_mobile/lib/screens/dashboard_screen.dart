@@ -194,16 +194,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_active_outlined, color: Colors.blueAccent),
-            onPressed: () {
-              NotificationService.instance.showLocalNotification(
-                title: 'System Test',
-                body: 'The notification system is active and ready.',
-              );
-            },
-            tooltip: 'Test Notification',
-          ),
           const NotificationButton(),
         ],
         bottom: PreferredSize(

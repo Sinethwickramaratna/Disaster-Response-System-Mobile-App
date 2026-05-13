@@ -41,21 +41,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   Future<void> _refreshAlerts() async {
     try {
-      final results = await Future.wait([
-        AssignmentService.fetchAlerts(scope: 'internal'),
-        AssignmentService.fetchAlerts(scope: 'citizen'),
-      ]);
-
-      // Merge, dedupe by id and sort by createdAt desc
-      final merged = <String, AlertData>{};
-      for (final list in results) {
-        for (final a in list) {
-          merged[a.id] = a;
-        }
-      }
-
-      final alerts = merged.values.toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      // Only fetch alerts from the main Alert table (scope: internal)
+      final alerts = await AssignmentService.fetchAlerts(scope: 'internal');
 
       if (!mounted) return;
 
