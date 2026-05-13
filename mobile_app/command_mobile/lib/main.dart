@@ -36,18 +36,50 @@ Future<void> main() async {
   runApp(MyApp(initialRoute: initialRoute));
 }
 
-class MyApp extends StatelessWidget {
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+class MyApp extends StatefulWidget {
   final String initialRoute;
 
   const MyApp({super.key, required this.initialRoute});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    _setupNotificationListener();
+  }
+
+  void _setupNotificationListener() {
+    NotificationService.instance.selectNotificationStream.listen((payload) {
+      if (payload == null) return;
+      
+      print('🚀 Navigating via notification payload: $payload');
+      
+      if (payload == 'resources') {
+        navigatorKey.currentState?.pushNamed('/resources');
+      } else if (payload == 'reports') {
+        navigatorKey.currentState?.pushNamed('/reports');
+      } else if (payload.startsWith('alert:')) {
+        navigatorKey.currentState?.pushNamed('/alerts');
+      } else if (payload.startsWith('incident:')) {
+        navigatorKey.currentState?.pushNamed('/dashboard');
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'DMC Sri Lanka',
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      initialRoute: initialRoute,
+      initialRoute: widget.initialRoute,
       routes: {
         '/login': (context) => const LoginScreen(),
         '/dashboard': (context) => const DashboardScreen(),

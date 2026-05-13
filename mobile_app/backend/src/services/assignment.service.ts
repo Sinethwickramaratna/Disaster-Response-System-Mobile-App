@@ -191,8 +191,8 @@ export async function getAssignedIncidents(userId: string, filters: AssignmentFi
 import { getAlerts as fetchAlertsFromService } from './alert.service'
 
 export async function getAssignmentAlerts(userId: string, scope: 'citizen' | 'internal' | 'all' = 'all') {
-  // Fetch ALL active alerts from the Alert table, regardless of district assignment
-  const alerts = await fetchAlertsFromService([])
+  // Fetch ALL active alerts from the Alert table for all users
+  const alerts = await fetchAlertsFromService()
   
   console.log(`[getAssignmentAlerts] Fetched ${alerts.length} active alerts for all roles`)
 

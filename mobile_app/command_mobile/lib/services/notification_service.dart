@@ -31,9 +31,16 @@ class NotificationService extends ChangeNotifier {
   final Set<String> _processedIds = {};
   List<Map<String, dynamic>> get notifications => List.unmodifiable(_notifications);
 
+  // Stream for notification taps to handle navigation
+  final StreamController<String?> _selectNotificationStreamController =
+      StreamController<String?>.broadcast();
+  Stream<String?> get selectNotificationStream =>
+      _selectNotificationStreamController.stream;
+
   StreamSubscription? _socketSub;
   StreamSubscription? _assignmentSub;
   StreamSubscription? _alertSub;
+  StreamSubscription? _reportSub;
 
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
@@ -64,6 +71,7 @@ class NotificationService extends ChangeNotifier {
       settings: initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         print('🔔 Notification tapped: ${response.payload}');
+        _selectNotificationStreamController.add(response.payload);
       },
     );
 
@@ -138,11 +146,14 @@ class NotificationService extends ChangeNotifier {
         final title = data['title']?.toString() ?? 'New Alert';
         final severity = data['severity']?.toString() ?? 'NORMAL';
         final type = data['type']?.toString() ?? 'ALERT';
-        final message = data['message']?.toString() ?? data['description']?.toString() ?? 'A new $severity $type was issued.';
+        final district = data['district']?.toString() ?? 'Unknown District';
+        final description = data['message']?.toString() ?? data['description']?.toString() ?? 'A new alert was issued.';
+        
+        final body = '[$severity] $type in $district\n$description';
 
         addNotification({
           'title': title,
-          'message': message,
+          'message': body,
           'type': type,
           'severity': severity,
           'createdAt': updatedAt.isNotEmpty ? updatedAt : DateTime.now().toIso8601String(),
@@ -150,7 +161,7 @@ class NotificationService extends ChangeNotifier {
 
         showLocalNotification(
           title: title,
-          body: message,
+          body: body,
           payload: 'alert:$alertId',
         );
       }
@@ -165,6 +176,7 @@ class NotificationService extends ChangeNotifier {
       String? title;
       String? message;
       String? dedupeId;
+      String? payload;
       final role = AuthService.currentUser?.role ?? 'FIELD_OFFICER';
       final isFieldOfficer = role == 'FIELD_OFFICER';
       final isLogisticsStaff = role == 'LOGISTICS_STAFF';
@@ -177,7 +189,8 @@ class NotificationService extends ChangeNotifier {
         if (dedupeId.isNotEmpty && _processedIds.contains(dedupeId)) return;
         _processedIds.add(dedupeId);
 
-        title = 'Resource Request';
+        title = 'Resource Request Update';
+        payload = 'resources';
         if (event == 'resourceRequest:deleted') {
           message = 'Request ${data['requestId']} was cancelled/removed';
         } else if (event == 'resourceRequest:created') {
@@ -185,7 +198,7 @@ class NotificationService extends ChangeNotifier {
         } else if (status == 'IGNORED') {
           message = 'Resource request ignored for ${data['requestId']}';
         } else {
-          message = 'Request ${data['requestId']} is now $status';
+          message = 'Request ${data['requestId']} for ${data['incidentId'] ?? 'Incident'} is now $status';
         }
       } else if (data.containsKey('deploymentId') && (isFieldOfficer || isLogisticsStaff || AuthService.currentUser?.role == 'RESPONSE_TEAM_MEMBER')) {
         final status = data['status']?.toString().toUpperCase() ?? 'PENDING';
@@ -196,12 +209,13 @@ class NotificationService extends ChangeNotifier {
         _processedIds.add(dedupeId);
 
         title = 'Assigned Resources';
+        payload = 'resources';
         if (status == 'DEPLOYED') {
           message = 'Resources are Deployed for Incident ${data['incidentId'] ?? ''}'.trim();
         } else if (status == 'DELIVERED') {
           message = 'Resources were delivered for Incident ${data['incidentId'] ?? ''}'.trim();
         } else if (status.isNotEmpty) {
-          message = 'Deployment ${data['deploymentId']} is now $status';
+          message = 'Deployment ${data['deploymentId']} for Incident ${data['incidentId']} is now $status';
         } else {
           message = 'Resource deployment ${data['deploymentId']} was updated';
         }
@@ -214,15 +228,17 @@ class NotificationService extends ChangeNotifier {
         _processedIds.add(dedupeId);
 
         title = 'Personnel Assignment';
+        payload = 'incident:${data['incidentId']}';
         if (event == 'assignment:deleted' || event == 'incident:removed') {
           title = 'Assignment Removed';
           message = 'You have been unassigned from Incident ${data['incidentId']}';
         } else if (event == 'assignment:created' || event == 'incident:assigned') {
           title = 'New Assignment';
-          final role = data['role']?.toString() ?? 'Responder';
-          message = 'You have been assigned to Incident ${data['incidentId']} as $role';
+          final assignedRole = data['role']?.toString() ?? 'Responder';
+          final district = data['district']?.toString() ?? 'Assigned Area';
+          message = 'You have been assigned to Incident ${data['incidentId']} as $assignedRole in $district';
         } else {
-          message = 'Assignment ${data['assignmentId']} is now $status';
+          message = 'Assignment ${data['assignmentId']} status: $status';
         }
       } else if (data.containsKey('incidentId')) {
         print('📌 NotificationService: Processing incident-related event: $event for ${data['incidentId']}');
@@ -230,13 +246,11 @@ class NotificationService extends ChangeNotifier {
         final updatedAt = data['updatedAt']?.toString() ?? data['updated_at']?.toString() ?? '';
         dedupeId = 'inc:${data['incidentId']}:$event:$status:$updatedAt';
         
-        if (dedupeId.isNotEmpty && _processedIds.contains(dedupeId)) {
-          print('♻️ NotificationService: Deduplicated event: $dedupeId');
-          return;
-        }
+        if (dedupeId.isNotEmpty && _processedIds.contains(dedupeId)) return;
         _processedIds.add(dedupeId);
 
         title = 'Incident Update';
+        payload = 'incident:${data['incidentId']}';
         if (status.isNotEmpty) {
           message = 'Incident ${data['incidentId']} status changed to $status';
         } else {
@@ -256,9 +270,30 @@ class NotificationService extends ChangeNotifier {
         showLocalNotification(
           title: title!,
           body: message ?? '',
-          payload: data['incidentId'] != null ? 'incident:${data['incidentId']}' : null,
+          payload: payload,
         );
       }
+    });
+
+    _reportSub = SocketService.instance.onReportUpdate.listen((data) {
+      print('🔔 Socket Report Event: ${data['event'] ?? 'update'}');
+      final title = 'Report Update';
+      final district = data['district'] ?? 'Unknown';
+      final status = data['status'] ?? 'Updated';
+      final message = 'Report for $district is now $status';
+
+      addNotification({
+        'title': title,
+        'message': message,
+        'type': 'Report',
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+
+      showLocalNotification(
+        title: title,
+        body: message,
+        payload: 'reports',
+      );
     });
   }
 

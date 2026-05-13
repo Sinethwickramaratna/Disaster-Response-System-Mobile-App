@@ -42,7 +42,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
   Future<void> _refreshAlerts() async {
     try {
       // Only fetch alerts from the main Alert table (scope: internal)
-      final alerts = await AssignmentService.fetchAlerts(scope: 'internal');
+      final alerts = await AssignmentService.fetchAlerts(scope: 'all');
+      print('[AlertsScreen] Fetched ${alerts.length} alerts from backend');
 
       if (!mounted) return;
 
@@ -55,6 +56,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
         _isLoading = false;
       });
     } catch (error) {
+      print('[AlertsScreen] Error loading alerts: $error');
       if (!mounted) return;
       setState(() {
         _alertCards = [];
