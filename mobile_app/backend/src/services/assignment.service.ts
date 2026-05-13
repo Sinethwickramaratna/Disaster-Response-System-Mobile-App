@@ -200,13 +200,21 @@ export async function getAssignmentAlerts(userId: string, scope: 'citizen' | 'in
     )
   )
 
-  const alerts = await fetchAlertsFromService(districts)
+  console.log(`[getAssignmentAlerts] User ${userId} has assignments in districts:`, districts)
 
-  return alerts.filter(alert => {
+  const alerts = await fetchAlertsFromService(districts)
+  
+  console.log(`[getAssignmentAlerts] Fetched ${alerts.length} total alerts before scope filtering`)
+
+  const filtered = alerts.filter(alert => {
     if (scope === 'citizen') return alert.isPublic === true
     if (scope === 'internal') return alert.isPublic === false
     return true
   })
+
+  console.log(`[getAssignmentAlerts] Scope filter '${scope}' returned ${filtered.length} alerts (public=${scope === 'citizen'}, internal=${scope === 'internal'})`)
+
+  return filtered
 }
 
 export async function getAssignedResources(userId: string) {

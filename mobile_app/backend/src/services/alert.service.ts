@@ -24,8 +24,16 @@ export async function getAlerts(userDistricts: string[] = []) {
     publicAlertQuery
   ])
 
-  if (alertError) throw alertError
-  if (publicAlertError) throw publicAlertError
+  if (alertError) {
+    console.error('[getAlerts] Alert table query error:', alertError)
+    throw alertError
+  }
+  if (publicAlertError) {
+    console.error('[getAlerts] PublicAlert table query error:', publicAlertError)
+    throw publicAlertError
+  }
+
+  console.log(`[getAlerts] Fetched ${alerts?.length ?? 0} Alert records and ${publicAlerts?.length ?? 0} PublicAlert records for districts:`, userDistricts)
 
   const formattedAlerts = [
     ...(alerts ?? []).map((alert) => ({
@@ -41,6 +49,8 @@ export async function getAlerts(userDistricts: string[] = []) {
       source: alert.source,
       expiresAt: alert.expiresAt,
       incidentId: alert.incidentId,
+      scope: 'internal',
+      tableSource: 'Alert',
     })),
     ...(publicAlerts ?? []).map((alert) => ({
       id: alert.alert_id.toString(),
@@ -56,6 +66,8 @@ export async function getAlerts(userDistricts: string[] = []) {
       createdAt: alert.issued_at,
       issued_at: alert.issued_at,
       incidentId: alert.incident_id,
+      scope: 'citizen',
+      tableSource: 'PublicAlert',
     }))
   ]
 

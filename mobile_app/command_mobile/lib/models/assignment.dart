@@ -350,6 +350,7 @@ class AlertData {
   final DateTime createdAt;
   final DateTime? expiresAt;
   final String? incidentId;
+  final String? tableSource;
 
   AlertData({
     required this.id,
@@ -365,6 +366,7 @@ class AlertData {
     required this.createdAt,
     this.expiresAt,
     this.incidentId,
+    this.tableSource,
   });
 
   factory AlertData.fromJson(Map<String, dynamic> json) {
@@ -378,6 +380,7 @@ class AlertData {
     final createdAt = _asDateTime(_readValue(json, ['issued_at', 'createdAt', 'created_at']));
     final scope = _asString(_readValue(json, ['scope']), 'all').toLowerCase();
     final isPublic = _asBool(_readValue(json, ['isPublic', 'is_public']), scope == 'citizen' || json.containsKey('alert_id'));
+    final tableSource = _readValue(json, ['tableSource'])?.toString();
     
     return AlertData(
       id: id,
@@ -395,6 +398,7 @@ class AlertData {
           ? _asDateTime(_readValue(json, ['expiresAt', 'expires_at']))
           : null,
       incidentId: _readValue(json, ['incident_id', 'incidentId', 'incidentId'])?.toString(),
+      tableSource: tableSource,
     );
   }
 }
