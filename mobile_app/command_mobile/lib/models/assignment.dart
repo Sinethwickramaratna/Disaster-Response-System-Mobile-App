@@ -43,10 +43,8 @@ bool _asBool(dynamic value, [bool fallback = false]) {
 enum TacticalIncidentStatus {
   ACTIVE,
   UNDER_RESPONSE,
-  FALSEREPORT,
-  ATTHEINCIDENT,
-  EN_ROUTE,
-  INSPECTING;
+  RESOLVED,
+  CLOSED;
 
   static TacticalIncidentStatus fromString(String value) {
     final clean = value.toUpperCase().replaceAll('-', '_');
@@ -59,26 +57,21 @@ enum TacticalIncidentStatus {
   String get label => switch (this) {
     ACTIVE => 'ACTIVE',
     UNDER_RESPONSE => 'UNDER RESPONSE',
-    FALSEREPORT => 'FALSE REPORT',
-    ATTHEINCIDENT => 'AT THE INCIDENT',
-    EN_ROUTE => 'EN-ROUTE',
-    INSPECTING => 'INSPECTING',
+    RESOLVED => 'RESOLVED',
+    CLOSED => 'CLOSED',
   };
 
   String get dbValue => switch (this) {
     ACTIVE => 'ACTIVE',
     UNDER_RESPONSE => 'UNDER_RESPONSE',
-    FALSEREPORT => 'FALSEREPORT',
-    ATTHEINCIDENT => 'ON_SITE',
-    EN_ROUTE => 'EN_ROUTE',
-    INSPECTING => 'INSPECTING',
+    RESOLVED => 'RESOLVED',
+    CLOSED => 'CLOSED',
   };
 }
 
 enum TacticalIncidentSeverity {
   LOW,
   MEDIUM,
-  MODERATE,
   HIGH,
   CRITICAL;
 

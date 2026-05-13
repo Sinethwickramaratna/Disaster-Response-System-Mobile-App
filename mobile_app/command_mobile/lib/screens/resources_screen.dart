@@ -658,12 +658,13 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
               final status = resource.status.toUpperCase();
               final badgeColor = switch (status) {
                 'READY' => Colors.tealAccent,
+                'DISPATCHED' || 'EN_ROUTE' => Colors.orangeAccent,
                 'DEPLOYED' => Colors.amberAccent,
                 'DELIVERED' => Colors.greenAccent,
                 _ => Colors.blueAccent,
               };
               final dispatchedCount = _sumDispatchedItems(resource.itemsDispatched);
-              final titleText = (status == 'DEPLOYED' || status == 'DELIVERED')
+              final titleText = (status == 'DEPLOYED' || status == 'DELIVERED' || status == 'DISPATCHED' || status == 'EN_ROUTE')
                   ? 'Assigned Resource ${resource.deploymentId}'
                   : 'Deployment ${resource.deploymentId}';
 
