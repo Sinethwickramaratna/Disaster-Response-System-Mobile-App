@@ -141,8 +141,10 @@ export function getIO(existingServer?: HttpServer) {
             if (eventType === 'DELETE') eventName = 'resourceRequest:deleted'
             if (eventType === 'INSERT') eventName = 'resourceRequest:created'
             
-            console.log(`[socket.io] Broadcasting ${eventName} for ${requestId}`)
-            io.emit(eventName, {
+            const roomName = `officer:${resourceRequest.requested_by}`
+            console.log(`[socket.io] Sending ${eventName} to ${roomName} for request ${requestId}`)
+            
+            io.to(roomName).emit(eventName, {
               requestId,
               request_id: requestId,
               userId: resourceRequest.requested_by,

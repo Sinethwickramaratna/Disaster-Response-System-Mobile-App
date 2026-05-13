@@ -202,6 +202,15 @@ class NotificationService extends ChangeNotifier {
       final isLogisticsStaff = role == 'LOGISTICS_STAFF';
 
       if (data.containsKey('requestId') && isFieldOfficer) {
+        final currentUserId = AuthService.currentUser?.userId;
+        final requesterId = data['userId']?.toString();
+        
+        // Skip if not the requester
+        if (currentUserId != null && requesterId != null && currentUserId != requesterId) {
+          print('⏳ Skipping resource request notification: current user $currentUserId is not requester $requesterId');
+          return;
+        }
+
         final status = data['status']?.toString().toUpperCase() ?? 'PENDING';
         final updatedAt = data['updatedAt']?.toString() ?? data['updated_at']?.toString() ?? '';
         dedupeId = 'res:${data['requestId']}:$event:$status:$updatedAt';
@@ -221,6 +230,14 @@ class NotificationService extends ChangeNotifier {
           message = 'Request ${data['requestId']} for ${data['incidentId'] ?? 'Incident'} is now $status';
         }
       } else if (data.containsKey('deploymentId') && (isFieldOfficer || isLogisticsStaff || AuthService.currentUser?.role == 'RESPONSE_TEAM_MEMBER')) {
+        final currentUserId = AuthService.currentUser?.userId;
+        final assignedUserId = data['userId']?.toString();
+
+        // For field officers, only show if they are the ones assigned/requested it
+        if (isFieldOfficer && currentUserId != null && assignedUserId != null && currentUserId != assignedUserId) {
+           print('⏳ Skipping deployment notification: current user $currentUserId is not assigned user $assignedUserId');
+           return;
+        }
         final status = data['status']?.toString().toUpperCase() ?? 'PENDING';
         final updatedAt = data['updatedAt']?.toString() ?? data['updated_at']?.toString() ?? '';
         dedupeId = 'dep:${data['deploymentId']}:$event:$status:$updatedAt';
