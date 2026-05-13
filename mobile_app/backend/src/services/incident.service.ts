@@ -230,10 +230,12 @@ export async function updateIncident(
         .eq('user_id', userId)
         .eq('incident_id', incidentId)
         .select()
-        .single()
       
-      if (error) throw error
-      finalResult = data
+      if (error) {
+        console.error('[incident.service] PersonnelAssignment status update failed:', error)
+        throw error
+      }
+      finalResult = data?.[0] || null
     }
 
     // --- Update ConfirmedIncident Fields ---
@@ -273,7 +275,6 @@ export async function updateIncident(
         .update(incidentPayload)
         .eq('id', incidentId)
         .select()
-        .single()
 
       if (error) {
         console.error('[incident.service] ConfirmedIncident update error:', error)
@@ -294,12 +295,11 @@ export async function updateIncident(
           .update(fallbackPayload)
           .eq('id', incidentId)
           .select()
-          .single()
 
         if (retryError) throw retryError
-        finalResult = retryData
+        finalResult = retryData?.[0] || null
       } else {
-        finalResult = data
+        finalResult = data?.[0] || null
       }
     }
 
