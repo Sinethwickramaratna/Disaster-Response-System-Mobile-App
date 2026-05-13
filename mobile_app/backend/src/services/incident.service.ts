@@ -10,6 +10,9 @@ type ConfirmedIncidentRow = {
   longitude: number
   district: string
   publicVisibility: boolean
+  description?: string
+  createdAt?: string
+  created_at?: string
 }
 
 type IncidentAssignmentRow = {
@@ -173,8 +176,8 @@ export async function getAssignedIncidentList(userId: string) {
         status: inc.status,
         latitude: inc.latitude,
         longitude: inc.longitude,
-        description: inc.description,
-        createdAt: inc.createdAt || (inc as any).created_at,
+        description: inc.description || '',
+        createdAt: inc.createdAt || inc.created_at || new Date().toISOString(),
       }
     })
 }
